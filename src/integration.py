@@ -13,7 +13,7 @@ from gi.repository import Gio
 import ddc
 
 APP_ID = "io.github.saikatnjm.Dimly"
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 WEBSITE = "https://github.com/saikatnjm/dimly"
 # (id, name shown in GNOME Settings, option, default keys)
 SHORTCUTS = [

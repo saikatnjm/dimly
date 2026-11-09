@@ -14,6 +14,11 @@ import ddc  # noqa: E402
 import integration  # noqa: E402
 import laptop  # noqa: E402
 
+# After you move a slider, outside updates wait this long, so a change that's
+# still on its way back from the laptop doesn't pull the slider from under you.
+LOCAL_CHANGE_GRACE = 2.0
+
+
 class Writer(threading.Thread):
     """Sends the latest requested value per feature to one monitor, one write at a time."""
 
@@ -37,6 +42,8 @@ class Writer(threading.Thread):
                 code, value = self.pending.popitem()
             for _ in range(3):
                 if ddc.write_vcp(self.bus, code, value):
+                    if code == ddc.BRIGHTNESS:
+                        ddc.record_brightness({self.bus: value})
                     break
                 with self.cond:
                     if code in self.pending:  # a newer value replaces this one
@@ -51,6 +58,10 @@ class MonitorGroup(Adw.PreferencesGroup):
         super().__init__(title=name)
         self.writer = writer
         self.brightness = None
+        self.preset_buttons = {}
+        self.handlers = {}
+        self.last_local_change = 0.0
+        self.catch_up = 0
         if values.get(ddc.BRIGHTNESS):
             self.brightness = self._slider_row("Brightness", ddc.BRIGHTNESS, *values[ddc.BRIGHTNESS])
             self.add(self._preset_row())
@@ -67,27 +78,56 @@ class MonitorGroup(Adw.PreferencesGroup):
         # Fixed width so every slider lines up whatever its title's length.
         scale.set_size_request(300, -1)
         scale.set_valign(Gtk.Align.CENTER)
-        scale.connect("value-changed", self._changed, code, maximum)
+        self.handlers[scale] = scale.connect("value-changed", self._changed, code, maximum)
         row = Adw.ActionRow(title=title)
         row.add_suffix(scale)
         self.add(row)
         return scale
 
     def _changed(self, scale, code, maximum):
+        self.last_local_change = time.monotonic()
         value = int(scale.get_value())
         self.writer.request(code, value)
         if code == ddc.BRIGHTNESS and ddc.load_config()["sync_laptop"]:
             laptop.set_brightness(round(100 * value / maximum), wait=False)
 
+    def show_brightness(self, value):
+        """Move the slider to a level set outside the window, without sending it back out."""
+        if not self.brightness:
+            return
+        wait = LOCAL_CHANGE_GRACE - (time.monotonic() - self.last_local_change)
+        if wait > 0:
+            # Catch up once you've let go, with whatever was recorded last.
+            if not self.catch_up:
+                self.catch_up = GLib.timeout_add(int(wait * 1000) + 50, self._catch_up)
+            return
+        with self.brightness.handler_block(self.handlers[self.brightness]):
+            self.brightness.set_value(value)
+
+    def _catch_up(self):
+        self.catch_up = 0
+        value = ddc.load_state().get("brightness", {}).get(str(self.writer.bus))
+        if value is not None:
+            self.show_brightness(value)
+        return GLib.SOURCE_REMOVE
+
     def _preset_row(self):
         # A row of its own: as an ActionRow suffix the buttons squeeze the title.
         buttons = Gtk.Box(spacing=6, homogeneous=True, margin_top=10, margin_bottom=10,
                           margin_start=12, margin_end=12)
-        for label, value in ddc.presets().items():
-            button = Gtk.Button(label=label, tooltip_text=f"Brightness {value}")
-            button.connect("clicked", lambda _, v=value: self.brightness.set_value(v))
+        for name in ddc.PRESET_NAMES:
+            button = Gtk.Button(label=name)
+            # Read the level on click, so edits in Preset levels apply straight away.
+            button.connect("clicked", lambda _, n=name: self.brightness.set_value(ddc.presets()[n]))
             buttons.append(button)
+            self.preset_buttons[name] = button
+        self.update_preset_tooltips()
         return Adw.PreferencesRow(activatable=False, child=buttons)
+
+    def update_preset_tooltips(self):
+        for name, level in ddc.presets().items():
+            if name in self.preset_buttons:
+                self.preset_buttons[name].set_tooltip_text(f"Brightness {level}")
 
     def _reset_row(self, name):
         button = Gtk.Button(label="Reset…", valign=Gtk.Align.CENTER)
@@ -96,6 +136,29 @@ class MonitorGroup(Adw.PreferencesGroup):
                             subtitle="Fixes brightness not dimming the screen. Also resets colours and sharpness.")
         row.add_suffix(button)
         return row
+
+
+class PresetsGroup(Adw.PreferencesGroup):
+    """Edits what each preset means. The buttons, schedule and shortcuts read it from the config file."""
+
+    def __init__(self, on_change):
+        super().__init__(title="Preset levels",
+                         description="The brightness each preset sets, from 0 to 100. "
+                                     "The buttons and the schedule use these.")
+        self.on_change = on_change
+        for name, level in ddc.presets().items():
+            spin = Gtk.SpinButton.new_with_range(0, 100, 5)
+            spin.set_value(level)
+            spin.set_numeric(True)
+            spin.set_valign(Gtk.Align.CENTER)
+            spin.connect("value-changed", self._changed, name)
+            row = Adw.ActionRow(title=name)
+            row.add_suffix(spin)
+            self.add(row)
+
+    def _changed(self, spin, name):
+        ddc.update_config(presets={**ddc.presets(), name: spin.get_value_as_int()})
+        self.on_change()
 
 
 class ScheduleGroup(Adw.PreferencesGroup):
@@ -197,7 +260,24 @@ class DimlyWindow(Adw.ApplicationWindow):
         box.append(header)
         box.append(self.toasts)
         self.set_content(box)
+
+        self.monitor_groups = {}
+        ddc.CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        self.state_monitor = Gio.File.new_for_path(str(ddc.STATE_FILE)).monitor_file(Gio.FileMonitorFlags.NONE, None)
+        self.state_monitor.connect("changed", self._state_changed)
         self.load()
+
+    def _state_changed(self, _monitor, _file, _other, event):
+        if event == Gio.FileMonitorEvent.DELETED:
+            return
+        levels = ddc.load_state().get("brightness", {})
+        for bus, group in self.monitor_groups.items():
+            if str(bus) in levels:
+                group.show_brightness(levels[str(bus)])
+
+    def _presets_changed(self):
+        for group in self.monitor_groups.values():
+            group.update_preset_tooltips()
 
     def load(self):
         spinner = Gtk.Spinner(spinning=True, width_request=32, height_request=32)
@@ -222,13 +302,16 @@ class DimlyWindow(Adw.ApplicationWindow):
         page = Adw.PreferencesPage()
         if not found:
             page.add(self._no_monitor_group(error))
+        self.monitor_groups = {}
         for bus, name, values in found:
             if bus not in self.writers:
                 self.writers[bus] = Writer(bus, lambda code, value, n=name: self._write_failed(n, code, value))
                 self.writers[bus].start()
-            page.add(MonitorGroup(self.writers[bus], name, values))
+            self.monitor_groups[bus] = MonitorGroup(self.writers[bus], name, values)
+            page.add(self.monitor_groups[bus])
         if self.has_laptop_screen:
             page.add(LaptopGroup())
+        page.add(PresetsGroup(self._presets_changed))
         page.add(ScheduleGroup())
         page.add(ShortcutsGroup())
         self.content.set_child(page)

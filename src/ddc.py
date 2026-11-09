@@ -173,6 +173,7 @@ def set_brightness_on(buses, new_value):
 
 def _set_brightness_on(buses, new_value):
     results = []
+    levels = {}
     for bus in buses:
         reading = read_vcp(bus, BRIGHTNESS)
         if reading is None:
@@ -181,7 +182,17 @@ def _set_brightness_on(buses, new_value):
         value = max(0, min(maximum, new_value(current, maximum)))
         if value == current or write_vcp(bus, BRIGHTNESS, value):
             results.append((value, maximum))
+            levels[bus] = value
+    record_brightness(levels)
     return results
+
+
+def record_brightness(levels):
+    """Note {bus: value} as the monitors' brightness. An open window watches this,
+    so its sliders follow the shortcuts, the schedule and the laptop's keys."""
+    if levels:
+        recorded = load_state().get("brightness", {})
+        update_state(brightness={**recorded, **{str(bus): value for bus, value in levels.items()}})
 
 
 def parse_time(text):

@@ -15,7 +15,7 @@
       dims both on a schedule, for long working days that are easier on your eyes.
     </p>
     <ul>
-      <li>Brightness and contrast sliders, plus one-click Night, Evening, Day and Max presets</li>
+      <li>Brightness and contrast sliders, plus one-click Night, Evening, Day and Max presets you can adjust</li>
       <li>Your laptop's brightness keys change the external monitors too</li>
       <li>Keyboard shortcuts for brighter and dimmer</li>
       <li>Switches preset by time of day; a change you make yourself lasts until the next switch</li>
@@ -49,6 +49,14 @@
   </supports>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="0.2.0" date="2026-11-09">
+      <description>
+        <ul>
+          <li>Sliders follow brightness changes made with the shortcuts, the schedule or the laptop's keys while the window is open</li>
+          <li>Preset levels can be edited in the window</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.0" date="2026-11-09">
       <description>
         <p>First release.</p>

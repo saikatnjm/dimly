@@ -11,7 +11,8 @@ its buttons, and keeps it at the same level as your laptop all day.
 ## Features
 
 - **Brightness and contrast sliders** for each monitor, plus one-click
-  **Night, Evening, Day and Max** presets.
+  **Night, Evening, Day and Max** presets, whose levels you can set.
+  The sliders follow changes made with the keys, shortcuts or schedule.
 - **Laptop sync**: the laptop's brightness keys change the external monitors too,
   and the sliders change both.
 - **Keyboard shortcuts**: <kbd>Super</kbd>+<kbd>F6</kbd> brighter,
@@ -33,7 +34,7 @@ Download `dimly_<version>_all.deb` from the
 [releases page](https://github.com/saikatnjm/dimly/releases), then:
 
 ```bash
-sudo apt install ./dimly_0.1.0_all.deb
+sudo apt install ./dimly_0.2.0_all.deb
 ```
 
 Log out and back in once, so your account can reach monitors. Then open
@@ -99,13 +100,13 @@ The other options are `--down`, `--set 40` and `--preset Night`. See
 
 ### Settings file
 
-Settings live in `~/.config/dimly/config.json`. The window edits most of them.
-To change preset levels or the shortcut step, edit the file:
+Settings live in `~/.config/dimly/config.json`. The window edits all of them, including
+the preset levels, except how much each shortcut press changes. To change that, edit
+the file:
 
 ```json
 {
-  "step": 10,
-  "presets": {"Night": 10, "Evening": 30, "Day": 60, "Max": 100}
+  "step": 10
 }
 ```
 
