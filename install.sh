@@ -25,7 +25,8 @@ for unit in dimly-background.service dimly-schedule.service; do
 done
 install -m 644 "$src/data/dimly-schedule.timer" "$units/"
 update-desktop-database "$share/applications" 2>/dev/null || true
-gtk-update-icon-cache -q -t "$share/icons/hicolor" 2>/dev/null || true
+# No icon cache here: GTK reads ~/.local icons without one, and a cache left
+# behind after uninstalling points at the missing icon, hiding the packaged one.
 
 "$bindir/dimly" --setup
 systemctl --user restart dimly-background.service

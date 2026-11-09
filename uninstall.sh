@@ -15,4 +15,9 @@ rm -f "$share/applications/$app_id.desktop" "$share/metainfo/$app_id.metainfo.xm
       "$share/icons/hicolor/scalable/apps/$app_id.svg" "$HOME/.local/bin/dimly"
 rm -rf "$share/dimly" "$HOME/.cache/dimly"
 update-desktop-database "$share/applications" 2>/dev/null || true
+# Older install.sh versions made an icon cache; refresh it so it stops listing
+# the removed icon, which would otherwise hide a packaged Dimly's icon.
+if [ -f "$share/icons/hicolor/icon-theme.cache" ]; then
+    gtk-update-icon-cache -q -t -f "$share/icons/hicolor" 2>/dev/null || true
+fi
 echo "Dimly removed."
