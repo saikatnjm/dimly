@@ -1,0 +1,11 @@
+[Unit]
+Description=Dimly: check the brightness schedule
+
+# Checks every 5 minutes and shortly after login. Dimly only acts when a new
+# time slot has started, so a change made by hand isn't undone.
+[Timer]
+OnStartupSec=20s
+OnCalendar=*:0/5
+
+[Install]
+WantedBy=timers.target

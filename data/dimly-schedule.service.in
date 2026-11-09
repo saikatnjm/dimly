@@ -1,0 +1,6 @@
+[Unit]
+Description=Dimly: apply the brightness schedule
+
+[Service]
+Type=oneshot
+ExecStart=@BINDIR@/dimly --apply-schedule

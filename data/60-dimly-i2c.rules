@@ -1,0 +1,4 @@
+# Lets the person at the screen talk to monitors over DDC/CI, without root.
+# Only I2C buses on graphics cards (PCI class 0x03xxxx), not other I2C devices.
+SUBSYSTEM=="i2c-dev", KERNEL=="i2c-[0-9]*", ATTRS{class}=="0x030000", TAG+="uaccess"
+SUBSYSTEM=="i2c-dev", KERNEL=="i2c-[0-9]*", ATTRS{class}=="0x038000", TAG+="uaccess"

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Dimly
+GenericName=Monitor Brightness
+Comment=Easy-on-the-eyes brightness for external monitors, in step with your laptop screen
+Exec=@BINDIR@/dimly
+Icon=io.github.saikatnjm.Dimly
+Terminal=false
+StartupNotify=true
+Categories=Settings;HardwareSettings;
+Keywords=brightness;contrast;monitor;display;dim;night;ddc;eye;
