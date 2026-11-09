@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dimly · Monitor brightness for Linux</title>
+<meta name="description" content="Dimly controls your external monitor's real backlight on Linux, keeps it in step with your laptop screen, and dims both on a schedule.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fbfaf8;
+    --surface: #ffffff;
+    --text: #1f1e2b;
+    --muted: #5d5b6e;
+    --line: #e6e3ee;
+    --accent: #5b47a8;
+    --accent-text: #ffffff;
+    --warm: #c9762d;
+    --code-bg: #f2f0f7;
+    --hero-from: #2e2b63;
+    --hero-to: #f0a45d;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16151f;
+      --surface: #1f1e2b;
+      --text: #ecebf3;
+      --muted: #a9a6bd;
+      --line: #2f2d40;
+      --accent: #a594ff;
+      --accent-text: #16151f;
+      --warm: #f0a45d;
+      --code-bg: #262536;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.6 "Inter", "Noto Sans Bengali", system-ui, sans-serif;
+  }
+  html[lang="bn"] body { font-family: "Noto Sans Bengali", "Inter", system-ui, sans-serif; line-height: 1.75; }
+  html[lang="en"] [lang="bn"], html[lang="bn"] [lang="en"] { display: none; }
+  a { color: var(--accent); }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 16px; }
+
+  header.top {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 0;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; color: var(--text); text-decoration: none; }
+  .brand img { width: 32px; height: 32px; }
+  .lang { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+  .lang button {
+    border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 14px;
+    padding: 6px 14px; cursor: pointer;
+  }
+  .lang button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
+
+  .hero {
+    display: grid; grid-template-columns: 1.2fr 1fr; gap: 40px; align-items: center;
+    padding: 48px 0 56px;
+  }
+  .hero h1 { font-size: clamp(32px, 5vw, 48px); line-height: 1.15; margin: 0 0 16px; letter-spacing: -0.02em; }
+  html[lang="bn"] .hero h1 { letter-spacing: 0; line-height: 1.35; }
+  .hero p.lead { font-size: 18px; color: var(--muted); margin: 0 0 28px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; }
+  .btn {
+    display: inline-block; padding: 12px 20px; border-radius: 10px; font-weight: 600; text-decoration: none;
+    border: 1px solid var(--line); color: var(--text); background: var(--surface);
+  }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  .art {
+    aspect-ratio: 4 / 3; border-radius: 18px; display: grid; place-items: center;
+    background: linear-gradient(160deg, var(--hero-from), #6b4a8a 60%, var(--hero-to));
+    box-shadow: 0 20px 50px -20px rgba(46, 43, 99, 0.55);
+  }
+  .art img { width: 46%; filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.35)); }
+
+  section { padding: 40px 0; border-top: 1px solid var(--line); }
+  h2 { font-size: 26px; margin: 0 0 20px; }
+  .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+  .card h3 { margin: 0 0 6px; font-size: 17px; }
+  .card p { margin: 0; color: var(--muted); font-size: 15px; }
+  .card .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--warm); margin-bottom: 12px; }
+
+  .shot { margin: 0; text-align: center; }
+  .shot img { max-width: 100%; border-radius: 12px; border: 1px solid var(--line); }
+
+  ol.steps { padding-left: 22px; margin: 0; }
+  ol.steps li { margin-bottom: 18px; }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px 14px; overflow-x: auto; font-size: 14px; margin: 8px 0 0;
+  }
+  code { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 0.92em; }
+  p code, li > code { background: var(--code-bg); padding: 1px 6px; border-radius: 6px; }
+  kbd {
+    font-family: inherit; font-size: 0.85em; padding: 1px 7px; border-radius: 6px;
+    border: 1px solid var(--line); border-bottom-width: 2px; background: var(--surface);
+  }
+  .note { color: var(--muted); font-size: 15px; }
+  dl.faq dt { font-weight: 600; margin-top: 16px; }
+  dl.faq dd { margin: 4px 0 0; color: var(--muted); }
+  footer { padding: 32px 0 48px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); }
+
+  @media (max-width: 760px) {
+    .hero { grid-template-columns: 1fr; padding-top: 24px; }
+    .art { order: -1; aspect-ratio: 16 / 9; }
+    .features { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="#"><img src="icon.svg" alt="">Dimly</a>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-set-lang="en" aria-pressed="true">English</button>
+      <button type="button" data-set-lang="bn" aria-pressed="false">বাংলা</button>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div>
+      <h1>
+        <span lang="en">Easy-on-the-eyes brightness for your external monitor</span>
+        <span lang="bn">মনিটরের আলো থাকুক চোখের আরামে</span>
+      </h1>
+      <p class="lead">
+        <span lang="en">Linux only dims your laptop's own screen. Dimly controls the monitor's real backlight over the cable, keeps it in step with your laptop, and dims both through the day.</span>
+        <span lang="bn">লিনাক্সে সাধারণত শুধু ল্যাপটপের স্ক্রিনের আলো কমানো-বাড়ানো যায়। Dimly ক্যাবলের মাধ্যমেই বাইরের মনিটরের আসল ব্যাকলাইট নিয়ন্ত্রণ করে, ল্যাপটপের সাথে তাল মিলিয়ে রাখে, আর দিনের সময় বুঝে দুটোর আলোই কমিয়ে দেয়।</span>
+      </p>
+      <div class="actions">
+        <a class="btn primary" href="https://github.com/saikatnjm/dimly/releases/latest">
+          <span lang="en">Download for Ubuntu</span><span lang="bn">Ubuntu-র জন্য ডাউনলোড করুন</span>
+        </a>
+        <a class="btn" href="https://github.com/saikatnjm/dimly">
+          <span lang="en">Source on GitHub</span><span lang="bn">GitHub-এ সোর্স কোড দেখুন</span>
+        </a>
+      </div>
+    </div>
+    <div class="art"><img src="icon.svg" alt=""></div>
+  </div>
+</div>
+
+<section>
+  <div class="wrap">
+    <h2><span lang="en">What it does</span><span lang="bn">কী কী করে</span></h2>
+    <div class="features">
+      <div class="card"><div class="dot"></div>
+        <h3><span lang="en">Real backlight control</span><span lang="bn">আসল ব্যাকলাইট নিয়ন্ত্রণ</span></h3>
+        <p><span lang="en">Brightness and contrast sliders, plus one-click Night, Evening, Day and Max presets. No more fiddly monitor buttons.</span><span lang="bn">ব্রাইটনেস আর কনট্রাস্টের স্লাইডার, সাথে এক ক্লিকে Night, Evening, Day ও Max প্রিসেট। মনিটরের ছোট ছোট বাটন টিপে আর মেনু ঘাঁটতে হবে না।</span></p>
+      </div>
+      <div class="card"><div class="dot"></div>
+        <h3><span lang="en">In step with your laptop</span><span lang="bn">ল্যাপটপের সাথে তাল মিলিয়ে</span></h3>
+        <p><span lang="en">Your laptop's brightness keys change the external monitors too, so every screen stays at the same level.</span><span lang="bn">ল্যাপটপের ব্রাইটনেস বাটন চাপলে বাইরের মনিটরও সাথে সাথে বদলায়, তাই সব স্ক্রিন একই রকম উজ্জ্বল থাকে।</span></p>
+      </div>
+      <div class="card"><div class="dot"></div>
+        <h3><span lang="en">Dims on a schedule</span><span lang="bn">সময় বুঝে আলো কমায়</span></h3>
+        <p><span lang="en">Switches preset by time of day. If you change it yourself, your setting lasts until the next switch.</span><span lang="bn">দিনের কোন সময়ে কোন প্রিসেট থাকবে ঠিক করে দিন। মাঝখানে নিজে বদলালে সেটাই থাকবে পরের নির্ধারিত সময় পর্যন্ত।</span></p>
+      </div>
+      <div class="card"><div class="dot"></div>
+        <h3><span lang="en">Keyboard shortcuts</span><span lang="bn">কীবোর্ড শর্টকাট</span></h3>
+        <p><span lang="en"><kbd>Super</kbd>+<kbd>F6</kbd> brighter, <kbd>Super</kbd>+<kbd>F5</kbd> dimmer. Change the keys in GNOME Settings.</span><span lang="bn"><kbd>Super</kbd>+<kbd>F6</kbd> চাপলে আলো বাড়ে, <kbd>Super</kbd>+<kbd>F5</kbd> চাপলে কমে। চাইলে GNOME Settings থেকে কী বদলে নিতে পারেন।</span></p>
+      </div>
+      <div class="card"><div class="dot"></div>
+        <h3><span lang="en">Plug-and-play monitors</span><span lang="bn">লাগালেই কাজ শুরু</span></h3>
+        <p><span lang="en">A newly connected monitor joins in automatically, at the current level.</span><span lang="bn">নতুন মনিটর লাগালে সেটাও নিজে থেকে বাকি স্ক্রিনগুলোর সমান উজ্জ্বলতায় চলে আসে।</span></p>
+      </div>
+      <div class="card"><div class="dot"></div>
+        <h3><span lang="en">Fix a stuck backlight</span><span lang="bn">আটকে যাওয়া ব্যাকলাইট ঠিক করুন</span></h3>
+        <p><span lang="en">Some monitors stop dimming. Factory reset clears it, and keeps your brightness and contrast.</span><span lang="bn">কোনো কোনো মনিটর একসময় আর ডিম হতে চায় না। ফ্যাক্টরি রিসেট দিলে ঠিক হয়ে যায়, আর আপনার ব্রাইটনেস ও কনট্রাস্ট আগের মতোই থাকে।</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="screenshot" hidden>
+  <div class="wrap">
+    <figure class="shot">
+      <img src="screenshot.png" alt="The Dimly window, with brightness and contrast sliders, presets and the schedule"
+           onload="document.getElementById('screenshot').hidden = false">
+    </figure>
+  </div>
+</section>
+
+<section id="install">
+  <div class="wrap">
+    <h2><span lang="en">Install</span><span lang="bn">ইনস্টল</span></h2>
+    <ol class="steps">
+      <li>
+        <span lang="en">Download <code>dimly_0.1.0_all.deb</code> from the <a href="https://github.com/saikatnjm/dimly/releases/latest">releases page</a>, then install it:</span>
+        <span lang="bn"><a href="https://github.com/saikatnjm/dimly/releases/latest">রিলিজ পেজ</a> থেকে <code>dimly_0.1.0_all.deb</code> ফাইলটা নামিয়ে নিন, তারপর ইনস্টল করুন:</span>
+        <pre><code>sudo apt install ./dimly_0.1.0_all.deb</code></pre>
+      </li>
+      <li>
+        <span lang="en"><strong>Log out and back in once</strong>, so your account can reach monitors.</span>
+        <span lang="bn"><strong>একবার লগ আউট করে আবার লগ ইন করুন</strong>, তাহলে আপনার অ্যাকাউন্ট মনিটরের সাথে যোগাযোগ করতে পারবে।</span>
+      </li>
+      <li>
+        <span lang="en">Open <strong>Dimly</strong> from the app menu. The first start adds the shortcuts and starts the background services.</span>
+        <span lang="bn">অ্যাপ মেনু থেকে <strong>Dimly</strong> খুলুন। প্রথমবার খোলার সময় এটা নিজেই শর্টকাট বসিয়ে নেয় আর দরকারি সার্ভিসগুলো চালু করে দেয়।</span>
+      </li>
+    </ol>
+    <p class="note">
+      <span lang="en">Built for GNOME on Ubuntu 22.04 and later. To install from source instead, see the <a href="https://github.com/saikatnjm/dimly#from-source">README</a>.</span>
+      <span lang="bn">Ubuntu 22.04 বা তার পরের ভার্সনের GNOME ডেস্কটপের জন্য বানানো। সোর্স কোড থেকে ইনস্টল করতে চাইলে <a href="https://github.com/saikatnjm/dimly/blob/main/README.bn.md">README</a> দেখুন।</span>
+    </p>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap">
+    <h2><span lang="en">Questions</span><span lang="bn">যা জানতে চান</span></h2>
+    <dl class="faq">
+      <dt><span lang="en">Will it work with my monitor?</span><span lang="bn">আমার মনিটরে কি চলবে?</span></dt>
+      <dd><span lang="en">Most desktop monitors support DDC/CI, the standard Dimly uses. If yours has a DDC/CI option in its menu, make sure it's on.</span><span lang="bn">বেশিরভাগ ডেস্কটপ মনিটরেই DDC/CI থাকে, আর Dimly এটাই ব্যবহার করে। মনিটরের মেনুতে DDC/CI অপশন থাকলে চালু আছে কিনা দেখে নিন।</span></dd>
+
+      <dt><span lang="en">It says "No adjustable monitor found".</span><span lang="bn">"No adjustable monitor found" দেখাচ্ছে।</span></dt>
+      <dd><span lang="en">Many USB-C docks and DisplayLink adapters don't pass DDC/CI through. Try connecting the monitor directly with HDMI or DisplayPort.</span><span lang="bn">অনেক USB-C ডক আর DisplayLink অ্যাডাপ্টার DDC/CI সাপোর্ট করে না। মনিটরটা সরাসরি HDMI বা DisplayPort দিয়ে লাগিয়ে দেখুন।</span></dd>
+
+      <dt><span lang="en">The number changes but the screen doesn't.</span><span lang="bn">সংখ্যা বদলায়, কিন্তু স্ক্রিনের আলো বদলায় না।</span></dt>
+      <dd><span lang="en">Some monitors get stuck ignoring brightness. Use <strong>Factory reset</strong> in the monitor's section of the window.</span><span lang="bn">কিছু মনিটর মাঝে মাঝে এভাবে আটকে যায়। উইন্ডোতে ওই মনিটরের অংশে <strong>Factory reset</strong> চাপুন।</span></dd>
+
+      <dt><span lang="en">Why does the monitor change a moment after the laptop?</span><span lang="bn">ল্যাপটপের একটু পরে মনিটর বদলায় কেন?</span></dt>
+      <dd><span lang="en">Monitors take about half a second for each change, so Dimly sends one at a time. That's normal.</span><span lang="bn">প্রতিটা পরিবর্তন নিতে মনিটরের প্রায় আধা সেকেন্ড লাগে, তাই Dimly একটা একটা করে পাঠায়। এটা স্বাভাবিক।</span></dd>
+    </dl>
+  </div>
+</section>
+
+<div class="wrap">
+  <footer>
+    <span lang="en">Dimly is free software under the MIT licence, made by Saikat Roy. <a href="https://github.com/saikatnjm/dimly/issues">Report a problem</a>.</span>
+    <span lang="bn">Dimly একটি ফ্রি সফটওয়্যার (MIT লাইসেন্স), বানিয়েছেন Saikat Roy। কোনো সমস্যা হলে <a href="https://github.com/saikatnjm/dimly/issues">জানান</a>।</span>
+  </footer>
+</div>
+
+<script>
+  (function () {
+    var buttons = document.querySelectorAll("[data-set-lang]");
+    function setLang(lang) {
+      document.documentElement.lang = lang;
+      buttons.forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.setLang === lang)); });
+      try { localStorage.setItem("dimly-lang", lang); } catch (e) {}
+    }
+    var saved = null;
+    try { saved = localStorage.getItem("dimly-lang"); } catch (e) {}
+    var browserBangla = (navigator.language || "").toLowerCase().indexOf("bn") === 0;
+    setLang(saved || (browserBangla ? "bn" : "en"));
+    buttons.forEach(function (b) { b.addEventListener("click", function () { setLang(b.dataset.setLang); }); });
+  })();
+</script>
+</body>
+</html>

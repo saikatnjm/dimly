@@ -1,5 +1,7 @@
 # Dimly
 
+**English** · [বাংলা](README.bn.md) · [Website](https://saikatnjm.github.io/dimly/)
+
 Easy-on-the-eyes brightness for external monitors, in step with your laptop screen.
 
 Linux desktops only dim the laptop's own screen. Dimly controls an external

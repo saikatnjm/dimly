@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="dusk" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2e2b63"/>
+      <stop offset="0.6" stop-color="#6b4a8a"/>
+      <stop offset="1" stop-color="#f0a45d"/>
+    </linearGradient>
+    <linearGradient id="bezel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#555b69"/>
+      <stop offset="1" stop-color="#2c3039"/>
+    </linearGradient>
+    <mask id="crescent">
+      <rect width="128" height="128" fill="#fff"/>
+      <circle cx="76" cy="47" r="16" fill="#000"/>
+    </mask>
+  </defs>
+  <path d="M53 97h22l4 12H49z" fill="#2c3039"/>
+  <rect x="36" y="106" width="56" height="8" rx="4" fill="#3b404c"/>
+  <rect x="8" y="16" width="112" height="84" rx="11" fill="url(#bezel)"/>
+  <rect x="15" y="23" width="98" height="70" rx="5" fill="url(#dusk)"/>
+  <circle cx="64" cy="56" r="20" fill="#ffefcc" mask="url(#crescent)"/>
+  <circle cx="34" cy="38" r="2" fill="#ffefcc" opacity="0.8"/>
+  <circle cx="92" cy="72" r="1.6" fill="#ffefcc" opacity="0.6"/>
+  <circle cx="42" cy="66" r="1.4" fill="#ffefcc" opacity="0.5"/>
+  <path d="M15 82c20-6 34-6 49-2s30 4 49-2v10a5 5 0 0 1-5 5H20a5 5 0 0 1-5-5z" fill="#1f1d45" opacity="0.55"/>
+</svg>
