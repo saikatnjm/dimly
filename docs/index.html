@@ -5,186 +5,434 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Dimly · Monitor brightness for Linux</title>
 <meta name="description" content="Dimly controls your external monitor's real backlight on Linux, keeps it in step with your laptop screen, and dims both on a schedule.">
+<meta name="theme-color" content="#0f1117" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f8f6f4" media="(prefers-color-scheme: light)">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #f8f6f4;
     --surface: #ffffff;
+    --surface-2: #f4efee;
     --text: #1d1b22;
     --muted: #625c66;
     --line: #e9e4e3;
     --accent: #9b4a4f;
     --accent-text: #ffffff;
-    --warm: #c4767a;
-    --code-bg: #f4efee;
-    --hero-from: #141a2b;
-    --hero-mid: #3a3f5c;
-    --hero-to: #d99a8f;
+    --accent-soft: rgba(155, 74, 79, 0.09);
+    --glow-rose: rgba(217, 154, 143, 0.38);
+    --glow-ink: rgba(58, 63, 92, 0.16);
+    --shadow: 0 1px 2px rgba(29, 27, 34, 0.04), 0 12px 32px -12px rgba(29, 27, 34, 0.14);
+    --header: rgba(248, 246, 244, 0.72);
+    --grad: linear-gradient(100deg, #3a3f5c, #9b4a4f 70%);
+    --sky-from: #141a2b;
+    --sky-mid: #3a3f5c;
+    --sky-to: #d99a8f;
+    --radius: 16px;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #0f1117;
       --surface: #171a22;
+      --surface-2: #1d202a;
       --text: #ece8ea;
       --muted: #a59ea6;
       --line: #272a35;
       --accent: #e8a9a3;
       --accent-text: #1c1012;
-      --warm: #e8a9a3;
-      --code-bg: #1d202a;
+      --accent-soft: rgba(232, 169, 163, 0.1);
+      --glow-rose: rgba(217, 154, 143, 0.16);
+      --glow-ink: rgba(90, 100, 150, 0.18);
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 16px 40px -16px rgba(0, 0, 0, 0.6);
+      --header: rgba(15, 17, 23, 0.7);
+      --grad: linear-gradient(100deg, #e8a9a3, #f3cdb8 80%);
     }
   }
+
   * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
+  html { scroll-behavior: smooth; scroll-padding-top: 80px; }
   body {
     margin: 0;
     background: var(--bg);
     color: var(--text);
     font: 16px/1.6 "Inter", "Noto Sans Bengali", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
   }
   html[lang="bn"] body { font-family: "Noto Sans Bengali", "Inter", system-ui, sans-serif; line-height: 1.75; }
   html[lang="en"] [lang="bn"], html[lang="bn"] [lang="en"] { display: none; }
-  a { color: var(--accent); }
-  .wrap { max-width: 960px; margin: 0 auto; padding: 0 16px; }
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+  svg { flex: none; }
 
-  header.top {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 0;
+  /* Header */
+  .site-header {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--header);
+    backdrop-filter: saturate(160%) blur(14px);
+    -webkit-backdrop-filter: saturate(160%) blur(14px);
+    border-bottom: 1px solid var(--line);
   }
-  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; color: var(--text); text-decoration: none; }
-  .brand img { width: 32px; height: 32px; }
-  .lang { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+  .site-header .wrap { display: flex; align-items: center; gap: 24px; height: 64px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; color: var(--text); text-decoration: none; }
+  .brand img { width: 30px; height: 30px; }
+  .nav { display: flex; gap: 22px; margin-right: auto; }
+  .nav a { color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 500; }
+  .nav a:hover { color: var(--text); }
+  .header-actions { display: flex; align-items: center; gap: 10px; }
+  .gh-star {
+    display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px;
+    border: 1px solid var(--line); border-radius: 999px; background: var(--surface);
+    color: var(--text); text-decoration: none; font-size: 13px; font-weight: 600;
+  }
+  .gh-star:hover { border-color: var(--accent); }
+  .gh-star .count { color: var(--muted); font-weight: 500; }
+  .gh-star .count:empty { display: none; }
+  .lang { display: inline-flex; height: 34px; padding: 3px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); }
   .lang button {
-    border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 14px;
-    padding: 6px 14px; cursor: pointer;
+    border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 13px; font-weight: 500;
+    padding: 0 12px; border-radius: 999px; cursor: pointer;
   }
   .lang button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
 
-  .hero {
-    display: grid; grid-template-columns: 1.2fr 1fr; gap: 40px; align-items: center;
-    padding: 48px 0 56px;
+  /* Hero */
+  .hero { position: relative; overflow: hidden; }
+  .hero::before, .hero::after {
+    content: ""; position: absolute; border-radius: 50%; filter: blur(70px); pointer-events: none; z-index: -1;
   }
-  .hero h1 { font-size: clamp(32px, 5vw, 48px); line-height: 1.15; margin: 0 0 16px; letter-spacing: -0.02em; }
-  html[lang="bn"] .hero h1 { letter-spacing: 0; line-height: 1.35; }
-  .hero p.lead { font-size: 18px; color: var(--muted); margin: 0 0 28px; }
+  .hero::before { width: 520px; height: 520px; right: -120px; top: -160px; background: var(--glow-rose); }
+  .hero::after { width: 460px; height: 460px; left: -180px; top: 120px; background: var(--glow-ink); }
+  .hero .wrap { display: grid; grid-template-columns: 1.05fr 1fr; gap: 56px; align-items: center; padding-top: 72px; padding-bottom: 88px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px 5px 6px;
+    border: 1px solid var(--line); border-radius: 999px; background: var(--surface);
+    font-size: 13px; color: var(--muted); margin-bottom: 22px;
+  }
+  .pill b { background: var(--accent-soft); color: var(--accent); padding: 2px 9px; border-radius: 999px; font-weight: 600; }
+  .pill b:empty { display: none; }
+  h1 { font-size: clamp(38px, 5.4vw, 60px); line-height: 1.05; letter-spacing: -0.035em; margin: 0 0 20px; font-weight: 800; }
+  html[lang="bn"] h1 { letter-spacing: 0; line-height: 1.3; font-weight: 700; }
+  .grad {
+    background: var(--grad);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .lead { font-size: 18px; color: var(--muted); margin: 0 0 32px; max-width: 34em; }
   .actions { display: flex; flex-wrap: wrap; gap: 12px; }
   .btn {
-    display: inline-block; padding: 12px 20px; border-radius: 10px; font-weight: 600; text-decoration: none;
-    border: 1px solid var(--line); color: var(--text); background: var(--surface);
+    display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 10px 20px;
+    border-radius: 12px; font-weight: 600; text-decoration: none; border: 1px solid var(--line);
+    color: var(--text); background: var(--surface); transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
   }
+  .btn:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
   .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
-  .btn .version { display: block; font-size: 12px; font-weight: 500; opacity: 0.8; }
-  .star { margin: 16px 0 0; font-size: 14px; color: var(--muted); }
+  .btn .stack { display: flex; flex-direction: column; line-height: 1.2; }
+  .btn .version { font-size: 12px; font-weight: 500; opacity: 0.8; }
   .btn .version:empty { display: none; }
-  .art {
-    aspect-ratio: 4 / 3; border-radius: 18px; display: grid; place-items: center;
-    background: linear-gradient(160deg, var(--hero-from), var(--hero-mid) 58%, var(--hero-to));
-    box-shadow: 0 20px 50px -20px rgba(20, 26, 43, 0.6);
-  }
-  .art img { width: 46%; filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.35)); }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 22px; font-size: 13px; color: var(--muted); }
+  .meta span { display: inline-flex; align-items: center; gap: 6px; }
+  .meta svg { color: var(--accent); }
 
-  section { padding: 40px 0; border-top: 1px solid var(--line); }
-  h2 { font-size: 26px; margin: 0 0 20px; }
-  .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
-  .card h3 { margin: 0 0 6px; font-size: 17px; }
-  section h3 { font-size: 19px; margin: 32px 0 8px; }
+  /* Product preview: a little desktop with Dimly's top-bar menu */
+  .preview { position: relative; }
+  .desktop {
+    position: relative; border-radius: 22px; overflow: hidden; aspect-ratio: 5 / 4;
+    border: 1px solid var(--line); box-shadow: 0 30px 70px -30px rgba(20, 26, 43, 0.55);
+  }
+  .wallpaper {
+    position: absolute; inset: 0;
+    background: linear-gradient(170deg, var(--sky-from), var(--sky-mid) 58%, var(--sky-to));
+    filter: brightness(var(--dim, 0.85)) contrast(var(--contrast, 1));
+    transition: filter .25s ease;
+  }
+  .wallpaper .moon { position: absolute; left: 12%; bottom: 22%; width: 18%; color: #ffefcc; }
+  .wallpaper .stars { position: absolute; inset: 0; width: 100%; height: 100%; color: #ffefcc; }
+  .wallpaper::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 30%;
+    background: linear-gradient(180deg, transparent, rgba(13, 17, 32, 0.55));
+  }
+  .topbar {
+    position: absolute; top: 0; left: 0; right: 0; height: 30px; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 12px; background: rgba(10, 12, 18, 0.82); color: #e9e6ea; font-size: 12px; font-weight: 600;
+  }
+  .topbar .icons { display: flex; align-items: center; gap: 10px; }
+  .topbar .dimly-icon { padding: 2px 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.16); display: inline-flex; }
+  .menu {
+    position: absolute; top: 38px; right: 12px; width: min(300px, 78%);
+    background: rgba(36, 38, 46, 0.96); color: #ece8ea; border-radius: 14px; padding: 14px;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45); border: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 13px;
+  }
+  .menu .row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .menu .row output { width: 26px; text-align: right; font-variant-numeric: tabular-nums; color: #cfc9cc; }
+  .menu input[type="range"] { flex: 1; accent-color: #e8a9a3; height: 18px; margin: 0; cursor: pointer; }
+  .menu .chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 4px 0 12px; }
+  .menu .chips button {
+    border: 0; border-radius: 8px; padding: 6px 0; background: rgba(255, 255, 255, 0.08); color: #ece8ea;
+    font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+  }
+  .menu .chips button:hover { background: rgba(255, 255, 255, 0.14); }
+  .menu .chips button[aria-pressed="true"] { background: #e8a9a3; color: #1c1012; }
+  .menu hr { border: 0; border-top: 1px solid rgba(255, 255, 255, 0.1); margin: 4px 0 10px; }
+  .menu .open { color: #cfc9cc; }
+  .preview-hint { text-align: center; font-size: 13px; color: var(--muted); margin-top: 14px; }
+
+  /* Sections */
+  section { padding: 88px 0; }
+  .section-head { max-width: 640px; margin-bottom: 40px; }
+  .eyebrow { font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin: 0 0 10px; }
+  html[lang="bn"] .eyebrow { letter-spacing: 0; text-transform: none; }
+  h2 { font-size: clamp(28px, 3.4vw, 38px); line-height: 1.15; letter-spacing: -0.025em; margin: 0 0 12px; font-weight: 700; }
+  html[lang="bn"] h2 { letter-spacing: 0; line-height: 1.35; }
+  .section-head p { color: var(--muted); margin: 0; font-size: 17px; }
+  .alt { background: var(--surface-2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+
+  .features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px;
+    transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+  }
+  .card:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
+  .card .icon {
+    width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center;
+    background: var(--accent-soft); color: var(--accent); margin-bottom: 16px;
+  }
+  .card h3 { margin: 0 0 6px; font-size: 17px; font-weight: 650; }
   .card p { margin: 0; color: var(--muted); font-size: 15px; }
-  .card .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--warm); margin-bottom: 12px; }
 
   .shot { margin: 0; text-align: center; }
-  .shot img { max-width: 100%; border-radius: 12px; border: 1px solid var(--line); }
+  .shot img { max-width: 100%; border-radius: var(--radius); border: 1px solid var(--line); box-shadow: var(--shadow); }
 
-  ol.steps { padding-left: 22px; margin: 0; }
-  ol.steps li { margin-bottom: 18px; }
-  pre {
-    background: var(--code-bg); border: 1px solid var(--line); border-radius: 10px;
-    padding: 12px 14px; overflow-x: auto; font-size: 14px; margin: 8px 0 0;
+  .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; counter-reset: step; margin-bottom: 18px; }
+  .step { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; }
+  .step::before {
+    counter-increment: step; content: counter(step);
+    display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
+    background: var(--accent); color: var(--accent-text); font-weight: 700; font-size: 14px; margin-bottom: 14px;
   }
-  code { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 0.92em; }
-  p code, li > code { background: var(--code-bg); padding: 1px 6px; border-radius: 6px; }
+  .step h3 { margin: 0 0 6px; font-size: 17px; }
+  .step p { margin: 0; color: var(--muted); font-size: 15px; }
+  .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; }
+  .panel h3 { margin: 0 0 8px; font-size: 17px; }
+  .panel p { margin: 12px 0 0; color: var(--muted); font-size: 15px; }
+  .panel p:first-of-type { margin-top: 0; }
+  .note { color: var(--muted); font-size: 14px; margin: 22px 0 0; }
+
+  .cmd {
+    position: relative; display: flex; align-items: center; gap: 10px; margin-top: 14px;
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 10px 10px 14px;
+  }
+  .alt .cmd { background: var(--bg); }
+  .cmd code { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 13.5px; line-height: 1.5; }
+  .cmd code::before { content: "$ "; color: var(--muted); }
+  .copy {
+    flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer;
+  }
+  .copy:hover { color: var(--text); }
+  .copy[data-copied] { color: var(--accent); border-color: var(--accent); }
+  code { font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace; font-size: 0.92em; }
+  p code, h3 code { background: var(--surface-2); padding: 1px 6px; border-radius: 6px; border: 1px solid var(--line); }
   kbd {
-    font-family: inherit; font-size: 0.85em; padding: 1px 7px; border-radius: 6px;
+    font-family: inherit; font-size: 0.82em; padding: 1px 7px; border-radius: 6px;
     border: 1px solid var(--line); border-bottom-width: 2px; background: var(--surface);
   }
-  .note { color: var(--muted); font-size: 15px; }
-  dl.faq dt { font-weight: 600; margin-top: 16px; }
-  dl.faq dd { margin: 4px 0 0; color: var(--muted); }
-  footer { padding: 32px 0 48px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); }
 
-  @media (max-width: 760px) {
-    .hero { grid-template-columns: 1fr; padding-top: 24px; }
-    .art { order: -1; aspect-ratio: 16 / 9; }
-    .features { grid-template-columns: 1fr; }
+  .faq { max-width: 760px; }
+  .faq details { border-bottom: 1px solid var(--line); }
+  .faq summary {
+    list-style: none; cursor: pointer; padding: 20px 0; font-weight: 600; font-size: 17px;
+    display: flex; justify-content: space-between; gap: 16px;
+  }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::after {
+    content: "+"; color: var(--accent); font-size: 22px; line-height: 1; transition: transform .2s ease;
+  }
+  .faq details[open] summary::after { transform: rotate(45deg); }
+  .faq details p { margin: 0 0 20px; color: var(--muted); }
+
+  .cta {
+    text-align: center; border-radius: 24px; padding: 56px 24px; position: relative; overflow: hidden;
+    background: linear-gradient(150deg, var(--sky-from), var(--sky-mid) 62%, var(--sky-to)); color: #f4f0f1;
+  }
+  .cta h2 { margin-bottom: 10px; }
+  .cta p { margin: 0 auto 26px; max-width: 32em; color: rgba(244, 240, 241, 0.82); }
+  .cta .btn { background: #f4f0f1; color: #1d1b22; border-color: transparent; }
+  .cta .btn .count { color: #625c66; font-weight: 500; }
+  .cta .btn .count:empty { display: none; }
+
+  footer { padding: 36px 0 48px; color: var(--muted); font-size: 14px; }
+  footer .wrap { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
+  footer .brand { font-size: 15px; }
+  footer .brand img { width: 24px; height: 24px; }
+  footer nav { display: flex; flex-wrap: wrap; gap: 20px; }
+  footer nav a { color: var(--muted); text-decoration: none; }
+  footer nav a:hover { color: var(--text); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .rise { animation: rise .7s ease both; }
+    .rise.d1 { animation-delay: .08s; }
+    .rise.d2 { animation-delay: .16s; }
+    @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  }
+
+  @media (max-width: 900px) {
+    .hero .wrap { grid-template-columns: 1fr; gap: 44px; padding-top: 44px; padding-bottom: 64px; }
+    .features, .steps { grid-template-columns: 1fr 1fr; }
+    .nav { display: none; }
+    .site-header .wrap { justify-content: space-between; }
+  }
+  @media (max-width: 620px) {
+    .features, .steps, .two { grid-template-columns: 1fr; }
+    section { padding: 64px 0; }
+    .gh-star .label { display: none; }
+    .btn { flex: 1 1 100%; justify-content: center; }
   }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header class="top">
-    <a class="brand" href="#"><img src="icon.svg" alt="">Dimly</a>
-    <div class="lang" role="group" aria-label="Language">
-      <button type="button" data-set-lang="en" aria-pressed="true">English</button>
-      <button type="button" data-set-lang="bn" aria-pressed="false">বাংলা</button>
-    </div>
-  </header>
 
-  <div class="hero">
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="#"><img src="icon.svg" alt="">Dimly</a>
+    <nav class="nav">
+      <a href="#features"><span lang="en">Features</span><span lang="bn">ফিচার</span></a>
+      <a href="#install"><span lang="en">Install</span><span lang="bn">ইনস্টল</span></a>
+      <a href="#faq"><span lang="en">FAQ</span><span lang="bn">প্রশ্নোত্তর</span></a>
+    </nav>
+    <div class="header-actions">
+      <a class="gh-star" href="https://github.com/saikatnjm/dimly" aria-label="Star Dimly on GitHub">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5l2.94 5.96 6.58.96-4.76 4.64 1.12 6.55L12 17.52l-5.88 3.09 1.12-6.55L2.48 9.42l6.58-.96z"/></svg>
+        <span class="label">Star</span><span class="count" data-stars></span>
+      </a>
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" data-set-lang="en" aria-pressed="true">EN</button>
+        <button type="button" data-set-lang="bn" aria-pressed="false">বাংলা</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+<div class="hero">
+  <div class="wrap">
     <div>
-      <h1>
-        <span lang="en">Easy-on-the-eyes brightness for your external monitor</span>
-        <span lang="bn">মনিটরের আলো থাকুক চোখের আরামে</span>
+      <div class="pill rise">
+        <b data-version-tag></b>
+        <span lang="en">Free and open source</span><span lang="bn">ফ্রি ও ওপেন সোর্স</span>
+      </div>
+      <h1 class="rise d1">
+        <span lang="en">Your monitor's brightness, <span class="grad">easy on the eyes</span></span>
+        <span lang="bn">মনিটরের আলো থাকুক <span class="grad">চোখের আরামে</span></span>
       </h1>
-      <p class="lead">
+      <p class="lead rise d2">
         <span lang="en">Linux only dims your laptop's own screen. Dimly controls the monitor's real backlight over the cable, keeps it in step with your laptop, and dims both through the day.</span>
         <span lang="bn">লিনাক্সে সাধারণত শুধু ল্যাপটপের স্ক্রিনের আলো কমানো-বাড়ানো যায়। Dimly ক্যাবলের মাধ্যমেই বাইরের মনিটরের আসল ব্যাকলাইট নিয়ন্ত্রণ করে, ল্যাপটপের সাথে তাল মিলিয়ে রাখে, আর দিনের সময় বুঝে দুটোর আলোই কমিয়ে দেয়।</span>
       </p>
-      <div class="actions">
+      <div class="actions rise d2">
         <a class="btn primary" data-download href="https://github.com/saikatnjm/dimly/releases/latest">
-          <span lang="en">Download for Ubuntu</span><span lang="bn">Ubuntu-র জন্য ডাউনলোড করুন</span>
-          <span class="version" data-version></span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0l-5-5m5 5l5-5M5 21h14"/></svg>
+          <span class="stack">
+            <span><span lang="en">Download for Ubuntu</span><span lang="bn">Ubuntu-র জন্য ডাউনলোড</span></span>
+            <span class="version" data-version></span>
+          </span>
         </a>
         <a class="btn" href="https://github.com/saikatnjm/dimly">
-          <span lang="en">Source on GitHub</span><span lang="bn">GitHub-এ সোর্স কোড দেখুন</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 00-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.08.63-1.33-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.56 9.56 0 015 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0012 2z"/></svg>
+          <span lang="en">View on GitHub</span><span lang="bn">GitHub-এ দেখুন</span>
         </a>
       </div>
-      <p class="star">
-        <span lang="en">Find Dimly useful? <a href="https://github.com/saikatnjm/dimly">Give it a ★ on GitHub</a>, so more people find it.</span>
-        <span lang="bn">Dimly কাজে লাগলে <a href="https://github.com/saikatnjm/dimly">GitHub-এ একটা ★ দিন</a>, তাহলে আরও মানুষ এটা খুঁজে পাবে।</span>
+      <div class="meta">
+        <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Ubuntu 22.04+</span>
+        <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>GNOME</span>
+        <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span lang="en">MIT licence</span><span lang="bn">MIT লাইসেন্স</span></span>
+      </div>
+    </div>
+
+    <div class="preview rise d1">
+      <div class="desktop" role="img" aria-label="Dimly's menu in the GNOME top bar, dimming the screen">
+        <div class="wallpaper">
+          <svg class="stars" viewBox="0 0 100 80" preserveAspectRatio="none" aria-hidden="true">
+            <circle cx="14" cy="28" r=".5" fill="currentColor" opacity=".8"/><circle cx="31" cy="44" r=".35" fill="currentColor" opacity=".6"/>
+            <circle cx="9" cy="52" r=".3" fill="currentColor" opacity=".5"/><circle cx="44" cy="62" r=".4" fill="currentColor" opacity=".6"/>
+            <circle cx="24" cy="18" r=".3" fill="currentColor" opacity=".5"/>
+          </svg>
+          <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M13.5 2.2a9.8 9.8 0 108.3 15.1 7.9 7.9 0 01-8.3-15.1z"/></svg>
+        </div>
+        <div class="topbar" aria-hidden="true">
+          <span>Activities</span>
+          <span>Tue 10:30</span>
+          <span class="icons">
+            <span class="dimly-icon"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2.5 2A1.5 1.5 0 001 3.5v7A1.5 1.5 0 002.5 12H6v1H4.5a.5.5 0 000 1h7a.5.5 0 000-1H10v-1h3.5a1.5 1.5 0 001.5-1.5v-7A1.5 1.5 0 0013.5 2zm0 1.25h11a.25.25 0 01.25.25v7a.25.25 0 01-.25.25h-11a.25.25 0 01-.25-.25v-7a.25.25 0 01.25-.25z"/><path d="M8.4 4.1a3 3 0 102.5 4.6 2.4 2.4 0 01-2.5-4.6z"/></svg></span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 18.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM12 13a7 7 0 015 2.1l-1.4 1.4a5 5 0 00-7.2 0L7 15.1A7 7 0 0112 13zm0-5a12 12 0 018.5 3.5l-1.4 1.4a10 10 0 00-14.2 0l-1.4-1.4A12 12 0 0112 8z"/></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M4 9h4l5-4v14l-5-4H4zM16 8.5a5 5 0 010 7l-1.4-1.4a3 3 0 000-4.2z"/></svg>
+          </span>
+        </div>
+        <div class="menu">
+          <div class="row">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+            <input id="demo-brightness" type="range" min="5" max="100" value="60" aria-label="Brightness">
+            <output for="demo-brightness" data-demo-value>60</output>
+          </div>
+          <div class="row">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 1.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zm0 0v11a5.5 5.5 0 010-11z"/></svg>
+            <input type="range" min="0" max="100" value="50" aria-label="Contrast" data-demo-contrast>
+            <output data-demo-contrast-value>50</output>
+          </div>
+          <div class="chips">
+            <button type="button" data-level="10">Night</button>
+            <button type="button" data-level="30">Evening</button>
+            <button type="button" data-level="60" aria-pressed="true">Day</button>
+            <button type="button" data-level="100">Max</button>
+          </div>
+          <hr>
+          <div class="open">Open Dimly</div>
+        </div>
+      </div>
+      <p class="preview-hint">
+        <span lang="en">Try it: drag the slider or pick a preset.</span>
+        <span lang="bn">চেষ্টা করে দেখুন: স্লাইডার টানুন বা একটা প্রিসেট বেছে নিন।</span>
       </p>
     </div>
-    <div class="art"><img src="icon.svg" alt=""></div>
   </div>
 </div>
 
-<section>
+<section id="features" class="alt">
   <div class="wrap">
-    <h2><span lang="en">What it does</span><span lang="bn">কী কী করে</span></h2>
+    <div class="section-head">
+      <p class="eyebrow"><span lang="en">Features</span><span lang="bn">ফিচার</span></p>
+      <h2><span lang="en">Everything your eyes need, nothing they don't</span><span lang="bn">চোখের আরামে যা দরকার, তার সবই</span></h2>
+      <p><span lang="en">Small, quiet and always in step. Dimly sleeps in the background until it has something to do.</span><span lang="bn">ছোট, নিঃশব্দ, আর সবসময় তাল মিলিয়ে। কাজ না থাকলে Dimly ব্যাকগ্রাউন্ডে চুপচাপ থাকে।</span></p>
+    </div>
     <div class="features">
-      <div class="card"><div class="dot"></div>
+      <div class="card">
+        <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></div>
         <h3><span lang="en">Real backlight control</span><span lang="bn">আসল ব্যাকলাইট নিয়ন্ত্রণ</span></h3>
         <p><span lang="en">Brightness and contrast sliders, plus one-click Night, Evening, Day and Max presets. No more fiddly monitor buttons.</span><span lang="bn">ব্রাইটনেস আর কনট্রাস্টের স্লাইডার, সাথে এক ক্লিকে Night, Evening, Day ও Max প্রিসেট। মনিটরের ছোট ছোট বাটন টিপে আর মেনু ঘাঁটতে হবে না।</span></p>
       </div>
-      <div class="card"><div class="dot"></div>
+      <div class="card">
+        <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="13" height="9" rx="1.5"/><path d="M6 16h5M17 8h4v9h-4zM8.5 13v3"/></svg></div>
         <h3><span lang="en">In step with your laptop</span><span lang="bn">ল্যাপটপের সাথে তাল মিলিয়ে</span></h3>
         <p><span lang="en">Your laptop's brightness keys change the external monitors too, so every screen stays at the same level.</span><span lang="bn">ল্যাপটপের ব্রাইটনেস বাটন চাপলে বাইরের মনিটরও সাথে সাথে বদলায়, তাই সব স্ক্রিন একই রকম উজ্জ্বল থাকে।</span></p>
       </div>
-      <div class="card"><div class="dot"></div>
+      <div class="card">
+        <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg></div>
         <h3><span lang="en">Dims on a schedule</span><span lang="bn">সময় বুঝে আলো কমায়</span></h3>
         <p><span lang="en">Switches preset by time of day. If you change it yourself, your setting lasts until the next switch.</span><span lang="bn">দিনের কোন সময়ে কোন প্রিসেট থাকবে ঠিক করে দিন। মাঝখানে নিজে বদলালে সেটাই থাকবে পরের নির্ধারিত সময় পর্যন্ত।</span></p>
       </div>
-      <div class="card"><div class="dot"></div>
+      <div class="card">
+        <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 8h18M14 12h4M14 15h4"/></svg></div>
         <h3><span lang="en">Right in the top bar</span><span lang="bn">টপ বার থেকেই</span></h3>
         <p><span lang="en">Brightness, contrast and presets from the Dimly icon in the top bar, or <kbd>Super</kbd>+<kbd>F6</kbd> and <kbd>Super</kbd>+<kbd>F5</kbd>.</span><span lang="bn">উপরের বারে Dimly-র আইকন থেকেই ব্রাইটনেস, কনট্রাস্ট আর প্রিসেট। অথবা <kbd>Super</kbd>+<kbd>F6</kbd> আর <kbd>Super</kbd>+<kbd>F5</kbd> চাপুন।</span></p>
       </div>
-      <div class="card"><div class="dot"></div>
+      <div class="card">
+        <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2v6M15 2v6M6 8h12v3a6 6 0 01-12 0zM12 17v5"/></svg></div>
         <h3><span lang="en">Plug-and-play monitors</span><span lang="bn">লাগালেই কাজ শুরু</span></h3>
         <p><span lang="en">A newly connected monitor joins in automatically, at the current level.</span><span lang="bn">নতুন মনিটর লাগালে সেটাও নিজে থেকে বাকি স্ক্রিনগুলোর সমান উজ্জ্বলতায় চলে আসে।</span></p>
       </div>
-      <div class="card"><div class="dot"></div>
+      <div class="card">
+        <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></div>
         <h3><span lang="en">Fix a stuck backlight</span><span lang="bn">আটকে যাওয়া ব্যাকলাইট ঠিক করুন</span></h3>
         <p><span lang="en">Some monitors stop dimming. Factory reset clears it, and keeps your brightness and contrast.</span><span lang="bn">কোনো কোনো মনিটর একসময় আর ডিম হতে চায় না। ফ্যাক্টরি রিসেট দিলে ঠিক হয়ে যায়, আর আপনার ব্রাইটনেস ও কনট্রাস্ট আগের মতোই থাকে।</span></p>
       </div>
@@ -203,36 +451,36 @@
 
 <section id="install">
   <div class="wrap">
-    <h2><span lang="en">Install</span><span lang="bn">ইনস্টল</span></h2>
-    <ol class="steps">
-      <li>
-        <span lang="en">Download <a data-download href="https://github.com/saikatnjm/dimly/releases/latest"><code data-deb-name>dimly_0.3.0_all.deb</code></a>, then install it:</span>
-        <span lang="bn"><a data-download href="https://github.com/saikatnjm/dimly/releases/latest"><code data-deb-name>dimly_0.3.0_all.deb</code></a> ফাইলটা নামিয়ে নিন, তারপর ইনস্টল করুন:</span>
-        <pre><code>sudo apt install ./<span data-deb-name>dimly_0.3.0_all.deb</span></code></pre>
-      </li>
-      <li>
-        <span lang="en"><strong>Log out and back in once</strong>, so your account can reach monitors and the top-bar menu appears.</span>
-        <span lang="bn"><strong>একবার লগ আউট করে আবার লগ ইন করুন</strong>, তাহলে আপনার অ্যাকাউন্ট মনিটরের সাথে যোগাযোগ করতে পারবে আর টপ বারের মেনুটা দেখা যাবে।</span>
-      </li>
-      <li>
-        <span lang="en">Open <strong>Dimly</strong> from the app menu. The first start adds the shortcuts and starts the background services.</span>
-        <span lang="bn">অ্যাপ মেনু থেকে <strong>Dimly</strong> খুলুন। প্রথমবার খোলার সময় এটা নিজেই শর্টকাট বসিয়ে নেয় আর দরকারি সার্ভিসগুলো চালু করে দেয়।</span>
-      </li>
-    </ol>
-
-    <h3><span lang="en">Upgrading</span><span lang="bn">নতুন ভার্সনে আপডেট</span></h3>
-    <p>
-      <span lang="en">Download the new <code>.deb</code> and install it the same way. No need to uninstall first: your settings, schedule and presets are kept. Then log out and back in.</span>
-      <span lang="bn">নতুন <code>.deb</code> ফাইলটা নামিয়ে একইভাবে ইনস্টল করুন। আগেরটা আনইনস্টল করার দরকার নেই: আপনার সেটিংস, সময়সূচি ও প্রিসেট যেমন ছিল তেমনই থাকে। তারপর লগ আউট করে আবার লগ ইন করুন।</span>
-    </p>
-
-    <h3><span lang="en">Uninstalling</span><span lang="bn">আনইনস্টল</span></h3>
-    <pre><code>dimly --remove-setup &amp;&amp; sudo apt remove dimly</code></pre>
-    <p>
-      <span lang="en">The first part removes the shortcuts, the top-bar menu and the background services from your account, so run it before removing the package. Your settings stay in <code>~/.config/dimly</code> in case you reinstall; delete that folder to remove them too.</span>
-      <span lang="bn">প্রথম অংশটা আপনার অ্যাকাউন্ট থেকে শর্টকাট, টপ বারের মেনু আর ব্যাকগ্রাউন্ড সার্ভিস সরিয়ে দেয়, তাই প্যাকেজ সরানোর আগেই এটা চালান। আবার ইনস্টল করলে কাজে লাগবে বলে সেটিংস <code>~/.config/dimly</code>-তে থেকে যায়; সেগুলোও মুছতে চাইলে ফোল্ডারটা মুছে দিন।</span>
-    </p>
-
+    <div class="section-head">
+      <p class="eyebrow"><span lang="en">Install</span><span lang="bn">ইনস্টল</span></p>
+      <h2><span lang="en">Up and running in a minute</span><span lang="bn">এক মিনিটেই চালু</span></h2>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <h3><span lang="en">Download and install</span><span lang="bn">ডাউনলোড ও ইনস্টল</span></h3>
+        <p><span lang="en">Get <a data-download href="https://github.com/saikatnjm/dimly/releases/latest"><code data-deb-name>dimly_0.3.0_all.deb</code></a>, then:</span><span lang="bn"><a data-download href="https://github.com/saikatnjm/dimly/releases/latest"><code data-deb-name>dimly_0.3.0_all.deb</code></a> ফাইলটা নামিয়ে নিন, তারপর:</span></p>
+        <div class="cmd"><code>sudo apt install ./<span data-deb-name>dimly_0.3.0_all.deb</span></code><button class="copy" type="button" aria-label="Copy command"></button></div>
+      </div>
+      <div class="step">
+        <h3><span lang="en">Log out and back in</span><span lang="bn">লগ আউট করে আবার লগ ইন</span></h3>
+        <p><span lang="en">Once, so your account can reach monitors and the top-bar menu appears.</span><span lang="bn">একবারই, তাহলে আপনার অ্যাকাউন্ট মনিটরের সাথে যোগাযোগ করতে পারবে আর টপ বারের মেনুটা দেখা যাবে।</span></p>
+      </div>
+      <div class="step">
+        <h3><span lang="en">Open Dimly</span><span lang="bn">Dimly খুলুন</span></h3>
+        <p><span lang="en">From the app menu. The first start adds the shortcuts and starts the background service.</span><span lang="bn">অ্যাপ মেনু থেকে। প্রথমবার খোলার সময় এটা নিজেই শর্টকাট বসিয়ে নেয় আর ব্যাকগ্রাউন্ড সার্ভিস চালু করে দেয়।</span></p>
+      </div>
+    </div>
+    <div class="two">
+      <div class="panel">
+        <h3><span lang="en">Upgrading</span><span lang="bn">নতুন ভার্সনে আপডেট</span></h3>
+        <p><span lang="en">Download the new <code>.deb</code> and install it the same way. No need to uninstall first: your settings, schedule and presets are kept. Then log out and back in.</span><span lang="bn">নতুন <code>.deb</code> ফাইলটা নামিয়ে একইভাবে ইনস্টল করুন। আগেরটা আনইনস্টল করার দরকার নেই: আপনার সেটিংস, সময়সূচি ও প্রিসেট যেমন ছিল তেমনই থাকে। তারপর লগ আউট করে আবার লগ ইন করুন।</span></p>
+      </div>
+      <div class="panel">
+        <h3><span lang="en">Uninstalling</span><span lang="bn">আনইনস্টল</span></h3>
+        <div class="cmd"><code>dimly --remove-setup &amp;&amp; sudo apt remove dimly</code><button class="copy" type="button" aria-label="Copy command"></button></div>
+        <p><span lang="en">The first part removes the shortcuts, the top-bar menu and the background service from your account, so run it before removing the package. Your settings stay in <code>~/.config/dimly</code> in case you reinstall.</span><span lang="bn">প্রথম অংশটা আপনার অ্যাকাউন্ট থেকে শর্টকাট, টপ বারের মেনু আর ব্যাকগ্রাউন্ড সার্ভিস সরিয়ে দেয়, তাই প্যাকেজ সরানোর আগেই এটা চালান। আবার ইনস্টল করলে কাজে লাগবে বলে সেটিংস <code>~/.config/dimly</code>-তে থেকে যায়।</span></p>
+      </div>
+    </div>
     <p class="note">
       <span lang="en">Built for GNOME on Ubuntu 22.04 and later; the top-bar menu currently needs GNOME 42 (Ubuntu 22.04). To install from source instead, see the <a href="https://github.com/saikatnjm/dimly#from-source">README</a>.</span>
       <span lang="bn">Ubuntu 22.04 বা তার পরের ভার্সনের GNOME ডেস্কটপের জন্য বানানো; টপ বারের মেনুটা আপাতত শুধু GNOME 42-এ (Ubuntu 22.04) চলে। সোর্স কোড থেকে ইনস্টল করতে চাইলে <a href="https://github.com/saikatnjm/dimly/blob/main/README.bn.md">README</a> দেখুন।</span>
@@ -240,33 +488,62 @@
   </div>
 </section>
 
-<section id="faq">
+<section id="faq" class="alt">
   <div class="wrap">
-    <h2><span lang="en">Questions</span><span lang="bn">যা জানতে চান</span></h2>
-    <dl class="faq">
-      <dt><span lang="en">Will it work with my monitor?</span><span lang="bn">আমার মনিটরে কি চলবে?</span></dt>
-      <dd><span lang="en">Most desktop monitors support DDC/CI, the standard Dimly uses. If yours has a DDC/CI option in its menu, make sure it's on.</span><span lang="bn">বেশিরভাগ ডেস্কটপ মনিটরেই DDC/CI থাকে, আর Dimly এটাই ব্যবহার করে। মনিটরের মেনুতে DDC/CI অপশন থাকলে চালু আছে কিনা দেখে নিন।</span></dd>
-
-      <dt><span lang="en">It says "No adjustable monitor found".</span><span lang="bn">"No adjustable monitor found" দেখাচ্ছে।</span></dt>
-      <dd><span lang="en">Many USB-C docks and DisplayLink adapters don't pass DDC/CI through. Try connecting the monitor directly with HDMI or DisplayPort.</span><span lang="bn">অনেক USB-C ডক আর DisplayLink অ্যাডাপ্টার DDC/CI সাপোর্ট করে না। মনিটরটা সরাসরি HDMI বা DisplayPort দিয়ে লাগিয়ে দেখুন।</span></dd>
-
-      <dt><span lang="en">The number changes but the screen doesn't.</span><span lang="bn">সংখ্যা বদলায়, কিন্তু স্ক্রিনের আলো বদলায় না।</span></dt>
-      <dd><span lang="en">Some monitors get stuck ignoring brightness. Use <strong>Factory reset</strong> in the monitor's section of the window.</span><span lang="bn">কিছু মনিটর মাঝে মাঝে এভাবে আটকে যায়। উইন্ডোতে ওই মনিটরের অংশে <strong>Factory reset</strong> চাপুন।</span></dd>
-
-      <dt><span lang="en">Why does the monitor change a moment after the laptop?</span><span lang="bn">ল্যাপটপের একটু পরে মনিটর বদলায় কেন?</span></dt>
-      <dd><span lang="en">Monitors take about half a second for each change, so Dimly sends one at a time. That's normal.</span><span lang="bn">প্রতিটা পরিবর্তন নিতে মনিটরের প্রায় আধা সেকেন্ড লাগে, তাই Dimly একটা একটা করে পাঠায়। এটা স্বাভাবিক।</span></dd>
-    </dl>
+    <div class="section-head">
+      <p class="eyebrow"><span lang="en">FAQ</span><span lang="bn">প্রশ্নোত্তর</span></p>
+      <h2><span lang="en">Questions</span><span lang="bn">যা জানতে চান</span></h2>
+    </div>
+    <div class="faq">
+      <details>
+        <summary><span lang="en">Will it work with my monitor?</span><span lang="bn">আমার মনিটরে কি চলবে?</span></summary>
+        <p><span lang="en">Most desktop monitors support DDC/CI, the standard Dimly uses. If yours has a DDC/CI option in its menu, make sure it's on.</span><span lang="bn">বেশিরভাগ ডেস্কটপ মনিটরেই DDC/CI থাকে, আর Dimly এটাই ব্যবহার করে। মনিটরের মেনুতে DDC/CI অপশন থাকলে চালু আছে কিনা দেখে নিন।</span></p>
+      </details>
+      <details>
+        <summary><span lang="en">It says "No adjustable monitor found".</span><span lang="bn">"No adjustable monitor found" দেখাচ্ছে।</span></summary>
+        <p><span lang="en">Many USB-C docks and DisplayLink adapters don't pass DDC/CI through. Try connecting the monitor directly with HDMI or DisplayPort.</span><span lang="bn">অনেক USB-C ডক আর DisplayLink অ্যাডাপ্টার DDC/CI সাপোর্ট করে না। মনিটরটা সরাসরি HDMI বা DisplayPort দিয়ে লাগিয়ে দেখুন।</span></p>
+      </details>
+      <details>
+        <summary><span lang="en">The number changes but the screen doesn't.</span><span lang="bn">সংখ্যা বদলায়, কিন্তু স্ক্রিনের আলো বদলায় না।</span></summary>
+        <p><span lang="en">Some monitors get stuck ignoring brightness. Use <strong>Factory reset</strong> in the monitor's section of the window.</span><span lang="bn">কিছু মনিটর মাঝে মাঝে এভাবে আটকে যায়। উইন্ডোতে ওই মনিটরের অংশে <strong>Factory reset</strong> চাপুন।</span></p>
+      </details>
+      <details>
+        <summary><span lang="en">Why does the monitor change a moment after the laptop?</span><span lang="bn">ল্যাপটপের একটু পরে মনিটর বদলায় কেন?</span></summary>
+        <p><span lang="en">Monitors take about half a second for each change, so Dimly sends one at a time. That's normal.</span><span lang="bn">প্রতিটা পরিবর্তন নিতে মনিটরের প্রায় আধা সেকেন্ড লাগে, তাই Dimly একটা একটা করে পাঠায়। এটা স্বাভাবিক।</span></p>
+      </details>
+    </div>
   </div>
 </section>
 
-<div class="wrap">
-  <footer>
-    <span lang="en">Dimly is free software under the MIT licence, made by Saikat Roy. <a href="https://github.com/saikatnjm/dimly/issues">Report a problem</a>.</span>
-    <span lang="bn">Dimly একটি ফ্রি সফটওয়্যার (MIT লাইসেন্স), বানিয়েছেন Saikat Roy। কোনো সমস্যা হলে <a href="https://github.com/saikatnjm/dimly/issues">জানান</a>।</span>
-  </footer>
-</div>
+<section>
+  <div class="wrap">
+    <div class="cta">
+      <h2><span lang="en">Find Dimly useful?</span><span lang="bn">Dimly কাজে লাগলো?</span></h2>
+      <p><span lang="en">A star on GitHub helps more people find it.</span><span lang="bn">GitHub-এ একটা স্টার দিলে আরও মানুষ এটা খুঁজে পাবে।</span></p>
+      <a class="btn" href="https://github.com/saikatnjm/dimly">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5l2.94 5.96 6.58.96-4.76 4.64 1.12 6.55L12 17.52l-5.88 3.09 1.12-6.55L2.48 9.42l6.58-.96z"/></svg>
+        <span lang="en">Star on GitHub</span><span lang="bn">GitHub-এ স্টার দিন</span>
+        <span class="count" data-stars></span>
+      </a>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="brand" href="#"><img src="icon.svg" alt="">Dimly</a>
+    <nav>
+      <a href="https://github.com/saikatnjm/dimly">GitHub</a>
+      <a href="https://github.com/saikatnjm/dimly/releases"><span lang="en">Releases</span><span lang="bn">রিলিজ</span></a>
+      <a href="https://github.com/saikatnjm/dimly/issues"><span lang="en">Report a problem</span><span lang="bn">সমস্যা জানান</span></a>
+      <a href="https://github.com/saikatnjm/dimly/blob/main/LICENSE"><span lang="en">MIT licence</span><span lang="bn">MIT লাইসেন্স</span></a>
+    </nav>
+  </div>
+</footer>
 
 <script>
+  // Language: remembered per visitor; Bangla browsers start in Bangla.
   (function () {
     var buttons = document.querySelectorAll("[data-set-lang]");
     function setLang(lang) {
@@ -288,6 +565,7 @@
     fetch("https://api.github.com/repos/saikatnjm/dimly/releases/latest")
       .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
       .then(function (release) {
+        document.querySelectorAll("[data-version-tag]").forEach(function (el) { el.textContent = release.tag_name; });
         var deb = (release.assets || []).find(function (a) { return /\.deb$/.test(a.name); });
         if (!deb) return;
         document.querySelectorAll("[data-download]").forEach(function (a) { a.href = deb.browser_download_url; });
@@ -298,6 +576,54 @@
         });
       })
       .catch(function () {});
+    fetch("https://api.github.com/repos/saikatnjm/dimly")
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function (repo) {
+        if (!repo.stargazers_count) return;
+        document.querySelectorAll("[data-stars]").forEach(function (el) { el.textContent = repo.stargazers_count; });
+      })
+      .catch(function () {});
+  })();
+
+  // The preview's slider and presets dim its little desktop, like Dimly does.
+  (function () {
+    var wallpaper = document.querySelector(".wallpaper");
+    var slider = document.getElementById("demo-brightness");
+    var value = document.querySelector("[data-demo-value]");
+    var chips = document.querySelectorAll(".chips button");
+    function show(level) {
+      slider.value = level;
+      value.textContent = level;
+      wallpaper.style.setProperty("--dim", (0.25 + 0.75 * level / 100).toFixed(2));
+      chips.forEach(function (c) { c.setAttribute("aria-pressed", String(Number(c.dataset.level) === Number(level))); });
+    }
+    slider.addEventListener("input", function () { show(slider.value); });
+    chips.forEach(function (c) { c.addEventListener("click", function () { show(c.dataset.level); }); });
+    var contrast = document.querySelector("[data-demo-contrast]");
+    var contrastValue = document.querySelector("[data-demo-contrast-value]");
+    contrast.addEventListener("input", function () {
+      contrastValue.textContent = contrast.value;
+      wallpaper.style.setProperty("--contrast", (0.6 + 0.8 * contrast.value / 100).toFixed(2));
+    });
+    show(slider.value);
+  })();
+
+  // Copy buttons on commands.
+  (function () {
+    var copyIcon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>';
+    var doneIcon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>';
+    document.querySelectorAll(".copy").forEach(function (button) {
+      button.innerHTML = copyIcon;
+      button.addEventListener("click", function () {
+        var text = button.parentNode.querySelector("code").textContent;
+        var done = function () {
+          button.innerHTML = doneIcon;
+          button.setAttribute("data-copied", "");
+          setTimeout(function () { button.innerHTML = copyIcon; button.removeAttribute("data-copied"); }, 1600);
+        };
+        if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, function () {});
+      });
+    });
   })();
 </script>
 </body>
