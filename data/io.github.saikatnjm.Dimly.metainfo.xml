@@ -28,7 +28,7 @@
     </p>
   </description>
   <launchable type="desktop-id">io.github.saikatnjm.Dimly.desktop</launchable>
-  <url type="homepage">https://github.com/saikatnjm/dimly</url>
+  <url type="homepage">https://saikatnjm.github.io/dimly/</url>
   <url type="bugtracker">https://github.com/saikatnjm/dimly/issues</url>
   <categories>
     <category>Settings</category>
@@ -53,7 +53,9 @@
       <description>
         <ul>
           <li>Top-bar menu with brightness, contrast and presets, so you don't need to open the window</li>
+          <li>The schedule runs inside the background service, with no periodic wake-ups</li>
           <li>The window's contrast slider also follows changes made elsewhere</li>
+          <li>Many reliability fixes: no more lost or corrupted settings, sliders that stop working, or levels below 5% being pulled back up</li>
         </ul>
       </description>
     </release>

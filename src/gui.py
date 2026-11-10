@@ -10,6 +10,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gio, GLib, Gtk  # noqa: E402
 
+import about  # noqa: E402
 import ddc  # noqa: E402
 import integration  # noqa: E402
 import laptop  # noqa: E402
@@ -83,11 +84,16 @@ class MonitorGroup(Adw.PreferencesGroup):
         for name in ddc.PRESET_NAMES:
             button = Gtk.Button(label=name)
             # Read the level on click, so edits in Preset levels apply straight away.
-            button.connect("clicked", lambda _, n=name: self.scales[ddc.BRIGHTNESS].set_value(ddc.presets()[n]))
+            button.connect("clicked", lambda _, n=name: self._apply_preset(n))
             buttons.append(button)
             self.preset_buttons[name] = button
         self.update_preset_tooltips()
         return Adw.PreferencesRow(activatable=False, child=buttons)
+
+    def _apply_preset(self, name):
+        # Presets are percentages; the slider runs over the monitor's own range.
+        scale = self.scales[ddc.BRIGHTNESS]
+        scale.set_value(ddc.from_percent(ddc.presets()[name], scale.get_adjustment().get_upper()))
 
     def update_preset_tooltips(self):
         for name, level in ddc.presets().items():
@@ -214,8 +220,9 @@ class TopBarGroup(Adw.PreferencesGroup):
 class ShortcutsGroup(Adw.PreferencesGroup):
     def __init__(self):
         super().__init__(title="Keyboard shortcuts",
-                         description=f"Change brightness in steps of {ddc.load_config()['step']}. "
-                                     "To change the keys, go to Settings → Keyboard → Custom Shortcuts.")
+                         # No "→" here: GNOME 42 lays out long descriptions with arrows too wide.
+                         description=f"Each press changes brightness by {ddc.load_config()['step']}. "
+                                     "You can change the keys in GNOME Settings, under Keyboard.")
         for shortcut_id, name, *_ in integration.SHORTCUTS:
             row = Adw.ActionRow(title=name.removeprefix("Dimly: ").capitalize())
             accel = integration.shortcut_binding(shortcut_id)
@@ -248,7 +255,7 @@ class DimlyWindow(Adw.ApplicationWindow):
         self.set_content(box)
 
         self.monitor_groups = {}
-        ddc.CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        ddc.STATE_DIR.mkdir(parents=True, exist_ok=True)
         self.state_monitor = Gio.File.new_for_path(str(ddc.STATE_FILE)).monitor_file(Gio.FileMonitorFlags.NONE, None)
         self.state_monitor.connect("changed", self._state_changed)
         self.load()
@@ -277,6 +284,11 @@ class DimlyWindow(Adw.ApplicationWindow):
         try:
             found = [(bus, name, {code: ddc.read_vcp(bus, code) for code in ddc.FEATURE_NAMES})
                      for bus, name in ddc.detect_displays()]
+            # Share what was read, so the top-bar menu shows the same levels.
+            for bus, _, values in found:
+                for code, reading in values.items():
+                    if reading:
+                        ddc.record_levels(code, {bus: reading[0]}, {bus: reading[1]})
             self.has_laptop_screen = laptop.get_brightness() is not None
             GLib.idle_add(self._show, found, None)
         except (OSError, subprocess.SubprocessError) as e:
@@ -301,7 +313,18 @@ class DimlyWindow(Adw.ApplicationWindow):
         if integration.extension_installed():
             page.add(TopBarGroup())
         page.add(ShortcutsGroup())
+        page.add(self._footer())
         self.content.set_child(page)
+
+    def _footer(self):
+        # Small and grey on purpose: findable when you want updates, easy to ignore otherwise.
+        label = Gtk.Label(use_markup=True, margin_top=6, css_classes=["caption", "dim-label"])
+        label.set_markup(f'Dimly {about.VERSION} · <a href="{about.SOURCE}/releases/latest">'
+                         'Latest version on GitHub</a>')
+        label.set_tooltip_text(f"{about.SOURCE}/releases/latest")
+        group = Adw.PreferencesGroup()
+        group.add(label)
+        return group
 
     def _no_monitor_group(self, error):
         group = Adw.PreferencesGroup()
@@ -349,7 +372,7 @@ class DimlyWindow(Adw.ApplicationWindow):
 
 class DimlyApp(Adw.Application):
     def __init__(self):
-        super().__init__(application_id=integration.APP_ID)
+        super().__init__(application_id=about.APP_ID)
 
     def do_startup(self):
         Adw.Application.do_startup(self)
@@ -367,9 +390,9 @@ class DimlyApp(Adw.Application):
     def _about(self, *_):
         Gtk.AboutDialog(
             transient_for=self.props.active_window, modal=True,
-            program_name="Dimly", version=integration.VERSION, logo_icon_name=integration.APP_ID,
+            program_name="Dimly", version=about.VERSION, logo_icon_name=about.APP_ID,
             comments="Easy-on-the-eyes brightness for external monitors, in step with your laptop screen.",
-            website=integration.WEBSITE, license_type=Gtk.License.MIT_X11, authors=["Saikat Roy"],
+            website=about.WEBSITE, license_type=Gtk.License.MIT_X11, authors=["Saikat Roy"],
         ).present()
 
 

@@ -22,10 +22,10 @@ ln -sf "$dest/dimly.py" "$bindir/dimly"
 sed "s|@BINDIR@|$bindir|" "$src/data/$app_id.desktop.in" > "$share/applications/$app_id.desktop"
 install -m 644 "$src/data/$app_id.metainfo.xml" "$share/metainfo/"
 install -m 644 "$src/data/$app_id.svg" "$share/icons/hicolor/scalable/apps/"
-for unit in dimly-background.service dimly-schedule.service; do
-    sed "s|@BINDIR@|$bindir|" "$src/data/$unit.in" > "$units/$unit"
-done
-install -m 644 "$src/data/dimly-schedule.timer" "$units/"
+sed "s|@BINDIR@|$bindir|" "$src/data/dimly-background.service.in" > "$units/dimly-background.service"
+# Versions before 0.3.0 kept the schedule with a timer; the background service does it now.
+systemctl --user disable --now dimly-schedule.timer 2>/dev/null || true
+rm -f "$units/dimly-schedule.timer" "$units/dimly-schedule.service"
 update-desktop-database "$share/applications" 2>/dev/null || true
 # No icon cache here: GTK reads ~/.local icons without one, and a cache left
 # behind after uninstalling points at the missing icon, hiding the packaged one.
@@ -34,4 +34,11 @@ update-desktop-database "$share/applications" 2>/dev/null || true
 systemctl --user restart dimly-background.service
 
 echo "Installed. Open \"Dimly\" from the app menu, or run: dimly"
-python3 -c "import sys; sys.path.insert(0, '$dest'); import ddc; p = ddc.access_problem(); print('Note:', p) if p else None"
+python3 - "$dest" <<'EOF'
+import sys
+sys.path.insert(0, sys.argv[1])
+import ddc
+problem = ddc.access_problem()
+if problem:
+    print("Note:", problem)
+EOF

@@ -6,7 +6,8 @@ set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
 app_id="io.github.saikatnjm.Dimly"
-version="$(sed -n 's/^VERSION = "\(.*\)"/\1/p' "$root/src/integration.py")"
+version="$(sed -n 's/^VERSION = "\(.*\)"/\1/p' "$root/src/about.py")"
+[ -n "$version" ] || { echo "No VERSION found in src/about.py" >&2; exit 1; }
 stage="$root/build/dimly_${version}_all"
 
 rm -rf "$stage"
@@ -26,6 +27,8 @@ ln -s ../share/dimly/dimly.py "$stage/usr/bin/dimly"
 sed "s|@BINDIR@|/usr/bin|" "$root/data/$app_id.desktop.in" > "$stage/usr/share/applications/$app_id.desktop"
 install -m 644 "$root/data/$app_id.metainfo.xml" "$stage/usr/share/metainfo/"
 install -m 644 "$root/data/$app_id.svg" "$stage/usr/share/icons/hicolor/scalable/apps/"
+# The schedule units are kept only so installs from before 0.3.0 can switch the
+# old timer off (the background service does that); drop them in a later release.
 for unit in dimly-background.service dimly-schedule.service; do
     sed "s|@BINDIR@|/usr/bin|" "$root/data/$unit.in" > "$stage/usr/lib/systemd/user/$unit"
 done

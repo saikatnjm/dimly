@@ -1,6 +1,10 @@
 """The laptop's built-in screen brightness, through GNOME's power daemon (no root needed)."""
 
+import time
+
 from gi.repository import Gio, GLib
+
+import ddc
 
 BUS_NAME = "org.gnome.SettingsDaemon.Power"
 PATH = "/org/gnome/SettingsDaemon/Power"
@@ -8,6 +12,10 @@ IFACE = "org.gnome.SettingsDaemon.Power.Screen"
 PROPERTIES = "org.freedesktop.DBus.Properties"
 # Some panels go fully black at 0, which looks like a broken screen.
 MINIMUM = 5
+# How long and how closely a laptop brightness change counts as the echo of one
+# Dimly made itself. GNOME can round the level a little on screens with coarse steps.
+ECHO_SECONDS = 3.0
+ECHO_TOLERANCE = 2
 
 
 _connection = None
@@ -35,7 +43,9 @@ def get_brightness():
 
 def set_brightness(percent, wait=True):
     """Set the laptop screen's brightness in percent. With wait=False, don't block (for the window)."""
-    args = GLib.Variant("(ssv)", (IFACE, "Brightness", GLib.Variant("i", max(MINIMUM, min(100, percent)))))
+    target = max(MINIMUM, min(100, percent))
+    _remember_own_change(target)
+    args = GLib.Variant("(ssv)", (IFACE, "Brightness", GLib.Variant("i", target)))
     try:
         if wait:
             session_bus().call_sync(BUS_NAME, PATH, PROPERTIES, "Set", args, None, Gio.DBusCallFlags.NONE, 2000, None)
@@ -43,6 +53,25 @@ def set_brightness(percent, wait=True):
             session_bus().call(BUS_NAME, PATH, PROPERTIES, "Set", args, None, Gio.DBusCallFlags.NONE, 2000, None, None)
     except GLib.Error:
         pass  # no laptop screen to follow
+
+
+def _remember_own_change(target):
+    # Shared through the state file, so the background service recognises changes
+    # made by the window and the shortcuts too, not just its own.
+    now = time.time()
+
+    def remember(state):
+        recent = [e for e in state.get("laptop_echoes", []) if now - e[1] < ECHO_SECONDS]
+        state["laptop_echoes"] = recent[-9:] + [[target, now]]
+
+    ddc.modify_state(remember)
+
+
+def is_own_change(percent):
+    """Whether this laptop brightness change is just the echo of one Dimly made."""
+    now = time.time()
+    return any(abs(value - percent) <= ECHO_TOLERANCE and now - when < ECHO_SECONDS
+               for value, when in ddc.load_state().get("laptop_echoes", []))
 
 
 def watch(callback):

@@ -1,0 +1,52 @@
+name: Bug report
+description: Something doesn't work as it should
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: input
+    id: monitor
+    attributes:
+      label: Monitor model
+      placeholder: e.g. LG 22MK430H
+    validations:
+      required: true
+  - type: dropdown
+    id: connection
+    attributes:
+      label: How is the monitor connected?
+      options:
+        - HDMI
+        - DisplayPort
+        - USB-C / Thunderbolt (direct)
+        - Through a dock or adapter
+        - DVI or VGA
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: detect
+    attributes:
+      label: Output of `ddcutil detect`
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Ubuntu and Dimly versions
+      description: "`lsb_release -ds` and `dimly --version`"
+      placeholder: Ubuntu 22.04.5 LTS, dimly 0.3.0
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Background service log (optional)
+      description: "`journalctl --user -u dimly-background --since today`"
+      render: text

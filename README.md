@@ -26,7 +26,8 @@ its buttons, and keeps it at the same level as your laptop all day.
   brightness, keeping your brightness and contrast.
 
 Built for GNOME (Ubuntu 22.04 and later). The window, schedule and sliders work
-on other desktops too; laptop sync and the shortcuts need GNOME.
+on other desktops too; laptop sync and the shortcuts need GNOME. The top-bar
+menu currently needs GNOME 42, as in Ubuntu 22.04.
 
 ## Install
 
@@ -43,7 +44,30 @@ Log out and back in once, so your account can reach monitors and GNOME picks up
 the top-bar menu. Then open **Dimly** from the app menu. The first start adds the
 keyboard shortcuts, starts the background services and shows the top-bar menu.
 
-To upgrade, install the new `.deb` the same way, then log out and back in.
+### Upgrading
+
+Download the new `.deb` and install it the same way. There's no need to uninstall
+first: apt replaces the old version, and your settings, schedule and presets are
+kept. Then log out and back in, so GNOME and the background service pick up the
+new version.
+
+### Uninstalling
+
+```bash
+dimly --remove-setup && sudo apt remove dimly
+```
+
+The first part removes what Dimly set up for your account: the keyboard shortcuts,
+the top-bar menu and the background services. Run it before removing the package,
+because afterwards the `dimly` command is gone. Your settings stay in
+`~/.config/dimly`, in case you reinstall; to delete them too:
+
+```bash
+rm -rf ~/.config/dimly ~/.cache/dimly ~/.local/state/dimly
+```
+
+If you've already removed the package, delete the two "Dimly" entries in
+GNOME Settings → Keyboard → Custom Shortcuts. Nothing else is left running.
 
 ### From source
 

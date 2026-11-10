@@ -5,6 +5,8 @@ runs setup() the first time it opens. Nothing here needs root.
 """
 
 import os
+import shlex
+import shutil
 import subprocess
 import sys
 
@@ -12,15 +14,14 @@ from gi.repository import Gio, GLib
 
 import ddc
 
-APP_ID = "io.github.saikatnjm.Dimly"
-VERSION = "0.3.0"
-WEBSITE = "https://github.com/saikatnjm/dimly"
 # (id, name shown in GNOME Settings, option, default keys)
 SHORTCUTS = [
     ("dimly-up", "Dimly: brighter", "--up", "<Super>F6"),
     ("dimly-down", "Dimly: dimmer", "--down", "<Super>F5"),
 ]
-UNITS = ["dimly-schedule.timer", "dimly-background.service"]
+UNITS = ["dimly-background.service"]
+# Versions before 0.3.0 also enabled this timer; the service now keeps the schedule.
+OLD_UNITS = ["dimly-schedule.timer"]
 EXTENSION_UUID = "dimly@saikatnjm.github.io"
 # Bumped when setup() gains a step, so existing installs run it once more.
 # 1: shortcuts and background services. 2: the top-bar menu.
@@ -100,7 +101,8 @@ def setup():
     if _setup_version() < 2 and extension_installed():
         set_top_bar(True)
     if _has_schema(KEYBINDING_SCHEMA):
-        command = os.path.realpath(sys.argv[0])
+        # GNOME splits the command like a shell does, so quote it: paths can have spaces.
+        command = shlex.quote(shutil.which("dimly") or os.path.realpath(sys.argv[0]))
         media_keys = Gio.Settings.new(MEDIA_KEYS_SCHEMA)
         paths = list(media_keys.get_strv("custom-keybindings"))
         for shortcut_id, name, option, keys in SHORTCUTS:
@@ -120,7 +122,7 @@ def setup():
 
 def remove():
     """Undo setup(): remove the shortcuts and the top-bar menu, and stop the background services."""
-    subprocess.run(["systemctl", "--user", "disable", "--now", *UNITS], check=False, capture_output=True)
+    subprocess.run(["systemctl", "--user", "disable", "--now", *UNITS, *OLD_UNITS], check=False, capture_output=True)
     if _has_schema(SHELL_SCHEMA):
         shell = Gio.Settings.new(SHELL_SCHEMA)
         for key in ("enabled-extensions", "disabled-extensions"):

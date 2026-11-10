@@ -118,7 +118,13 @@ class DimlyIndicator extends PanelMenu.Button {
         this._catchUpId = 0;
         this._changedId = 0;
         this._ownerId = 0;
+        // GNOME 42 turns extensions off at every screen lock, so a reply can arrive
+        // after this menu is gone: the cancellable and _destroyed guard against that.
+        this._destroyed = false;
+        this._cancellable = new Gio.Cancellable();
         this._proxy = new ServiceProxy(Gio.DBus.session, BUS_NAME, OBJECT_PATH, (proxy, error) => {
+            if (this._destroyed)
+                return;
             if (error) {
                 logError(error, 'Dimly');
                 return;
@@ -127,7 +133,7 @@ class DimlyIndicator extends PanelMenu.Button {
                 (_proxy, _sender, [brightness, contrast]) => this._show(brightness, contrast));
             this._ownerId = proxy.connect('notify::g-name-owner', () => this._refresh());
             this._refresh();
-        }, null, Gio.DBusProxyFlags.DO_NOT_AUTO_START);
+        }, this._cancellable, Gio.DBusProxyFlags.DO_NOT_AUTO_START);
         this.menu.connect('open-state-changed', (menu, open) => {
             if (open)
                 this._refresh();
@@ -173,7 +179,7 @@ class DimlyIndicator extends PanelMenu.Button {
         if (!available)
             return;
         this._proxy.GetStateRemote((result, error) => {
-            if (!error)
+            if (!error && !this._destroyed)
                 this._show(...result);
         });
     }
@@ -196,6 +202,8 @@ class DimlyIndicator extends PanelMenu.Button {
     }
 
     destroy() {
+        this._destroyed = true;
+        this._cancellable.cancel();
         if (this._catchUpId)
             GLib.source_remove(this._catchUpId);
         if (this._changedId)

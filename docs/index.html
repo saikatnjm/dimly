@@ -11,29 +11,30 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #fbfaf8;
+    --bg: #f8f6f4;
     --surface: #ffffff;
-    --text: #1f1e2b;
-    --muted: #5d5b6e;
-    --line: #e6e3ee;
-    --accent: #5b47a8;
+    --text: #1d1b22;
+    --muted: #625c66;
+    --line: #e9e4e3;
+    --accent: #9b4a4f;
     --accent-text: #ffffff;
-    --warm: #c9762d;
-    --code-bg: #f2f0f7;
-    --hero-from: #2e2b63;
-    --hero-to: #f0a45d;
+    --warm: #c4767a;
+    --code-bg: #f4efee;
+    --hero-from: #141a2b;
+    --hero-mid: #3a3f5c;
+    --hero-to: #d99a8f;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #16151f;
-      --surface: #1f1e2b;
-      --text: #ecebf3;
-      --muted: #a9a6bd;
-      --line: #2f2d40;
-      --accent: #a594ff;
-      --accent-text: #16151f;
-      --warm: #f0a45d;
-      --code-bg: #262536;
+      --bg: #0f1117;
+      --surface: #171a22;
+      --text: #ece8ea;
+      --muted: #a59ea6;
+      --line: #272a35;
+      --accent: #e8a9a3;
+      --accent-text: #1c1012;
+      --warm: #e8a9a3;
+      --code-bg: #1d202a;
     }
   }
   * { box-sizing: border-box; }
@@ -76,11 +77,12 @@
   }
   .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
   .btn .version { display: block; font-size: 12px; font-weight: 500; opacity: 0.8; }
+  .star { margin: 16px 0 0; font-size: 14px; color: var(--muted); }
   .btn .version:empty { display: none; }
   .art {
     aspect-ratio: 4 / 3; border-radius: 18px; display: grid; place-items: center;
-    background: linear-gradient(160deg, var(--hero-from), #6b4a8a 60%, var(--hero-to));
-    box-shadow: 0 20px 50px -20px rgba(46, 43, 99, 0.55);
+    background: linear-gradient(160deg, var(--hero-from), var(--hero-mid) 58%, var(--hero-to));
+    box-shadow: 0 20px 50px -20px rgba(20, 26, 43, 0.6);
   }
   .art img { width: 46%; filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.35)); }
 
@@ -89,6 +91,7 @@
   .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
   .card h3 { margin: 0 0 6px; font-size: 17px; }
+  section h3 { font-size: 19px; margin: 32px 0 8px; }
   .card p { margin: 0; color: var(--muted); font-size: 15px; }
   .card .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--warm); margin-bottom: 12px; }
 
@@ -148,6 +151,10 @@
           <span lang="en">Source on GitHub</span><span lang="bn">GitHub-এ সোর্স কোড দেখুন</span>
         </a>
       </div>
+      <p class="star">
+        <span lang="en">Find Dimly useful? <a href="https://github.com/saikatnjm/dimly">Give it a ★ on GitHub</a>, so more people find it.</span>
+        <span lang="bn">Dimly কাজে লাগলে <a href="https://github.com/saikatnjm/dimly">GitHub-এ একটা ★ দিন</a>, তাহলে আরও মানুষ এটা খুঁজে পাবে।</span>
+      </p>
     </div>
     <div class="art"><img src="icon.svg" alt=""></div>
   </div>
@@ -212,9 +219,23 @@
         <span lang="bn">অ্যাপ মেনু থেকে <strong>Dimly</strong> খুলুন। প্রথমবার খোলার সময় এটা নিজেই শর্টকাট বসিয়ে নেয় আর দরকারি সার্ভিসগুলো চালু করে দেয়।</span>
       </li>
     </ol>
+
+    <h3><span lang="en">Upgrading</span><span lang="bn">নতুন ভার্সনে আপডেট</span></h3>
+    <p>
+      <span lang="en">Download the new <code>.deb</code> and install it the same way. No need to uninstall first: your settings, schedule and presets are kept. Then log out and back in.</span>
+      <span lang="bn">নতুন <code>.deb</code> ফাইলটা নামিয়ে একইভাবে ইনস্টল করুন। আগেরটা আনইনস্টল করার দরকার নেই: আপনার সেটিংস, সময়সূচি ও প্রিসেট যেমন ছিল তেমনই থাকে। তারপর লগ আউট করে আবার লগ ইন করুন।</span>
+    </p>
+
+    <h3><span lang="en">Uninstalling</span><span lang="bn">আনইনস্টল</span></h3>
+    <pre><code>dimly --remove-setup &amp;&amp; sudo apt remove dimly</code></pre>
+    <p>
+      <span lang="en">The first part removes the shortcuts, the top-bar menu and the background services from your account, so run it before removing the package. Your settings stay in <code>~/.config/dimly</code> in case you reinstall; delete that folder to remove them too.</span>
+      <span lang="bn">প্রথম অংশটা আপনার অ্যাকাউন্ট থেকে শর্টকাট, টপ বারের মেনু আর ব্যাকগ্রাউন্ড সার্ভিস সরিয়ে দেয়, তাই প্যাকেজ সরানোর আগেই এটা চালান। আবার ইনস্টল করলে কাজে লাগবে বলে সেটিংস <code>~/.config/dimly</code>-তে থেকে যায়; সেগুলোও মুছতে চাইলে ফোল্ডারটা মুছে দিন।</span>
+    </p>
+
     <p class="note">
-      <span lang="en">Built for GNOME on Ubuntu 22.04 and later. To install from source instead, see the <a href="https://github.com/saikatnjm/dimly#from-source">README</a>.</span>
-      <span lang="bn">Ubuntu 22.04 বা তার পরের ভার্সনের GNOME ডেস্কটপের জন্য বানানো। সোর্স কোড থেকে ইনস্টল করতে চাইলে <a href="https://github.com/saikatnjm/dimly/blob/main/README.bn.md">README</a> দেখুন।</span>
+      <span lang="en">Built for GNOME on Ubuntu 22.04 and later; the top-bar menu currently needs GNOME 42 (Ubuntu 22.04). To install from source instead, see the <a href="https://github.com/saikatnjm/dimly#from-source">README</a>.</span>
+      <span lang="bn">Ubuntu 22.04 বা তার পরের ভার্সনের GNOME ডেস্কটপের জন্য বানানো; টপ বারের মেনুটা আপাতত শুধু GNOME 42-এ (Ubuntu 22.04) চলে। সোর্স কোড থেকে ইনস্টল করতে চাইলে <a href="https://github.com/saikatnjm/dimly/blob/main/README.bn.md">README</a> দেখুন।</span>
     </p>
   </div>
 </section>

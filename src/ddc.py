@@ -1,9 +1,9 @@
-"""DDC/CI access through ddcutil, plus the settings shared by the window,
-the keyboard shortcuts and the schedule timer.
+"""DDC/CI access through ddcutil, plus the settings and state shared by the
+window, the keyboard shortcuts and the background service.
 
-Every ddcutil call holds one lock file, so those three never talk to the
-monitor at the same time: overlapping writes collide on the I2C bus and slow
-monitors drop them.
+Every ddcutil call holds one lock, across threads and processes, so nothing
+talks to a monitor at the same time as anything else: overlapping writes
+collide on the I2C bus and slow monitors drop them.
 """
 
 import copy
@@ -13,6 +13,7 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 import threading
 import time
 from contextlib import contextmanager
@@ -27,7 +28,12 @@ PRESET_NAMES = ["Night", "Evening", "Day", "Max"]
 
 CACHE_DIR = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "dimly"
 CONFIG_FILE = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "dimly" / "config.json"
-STATE_FILE = CACHE_DIR / "state.json"
+# State, unlike a cache, must survive cache cleaners: it remembers e.g. that you
+# turned the top-bar menu off. Versions before 0.3.0 kept it in CACHE_DIR.
+STATE_DIR = Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local" / "state") / "dimly"
+STATE_FILE = STATE_DIR / "state.json"
+OLD_STATE_FILE = CACHE_DIR / "state.json"
+LOCK_DIR = Path(os.environ.get("XDG_RUNTIME_DIR") or CACHE_DIR) / "dimly"
 DEFAULT_CONFIG = {
     "step": 10,
     "sync_laptop": True,
@@ -38,28 +44,37 @@ DEFAULT_CONFIG = {
 }
 
 
-_lock_depth = 0
+_held = threading.local()
 
 
 @contextmanager
-def monitor_lock():
-    """Hold the lock that every ddcutil call needs. Re-entrant within one process."""
-    global _lock_depth
-    if _lock_depth:
-        _lock_depth += 1
+def _lock(name):
+    """Hold an exclusive lock shared by all of Dimly's processes and threads.
+
+    Re-entrant within one thread. flock() locks belong to each open() of the file,
+    so two threads of one process exclude each other just like two processes do.
+    """
+    depth = getattr(_held, name, 0)
+    if depth:
+        setattr(_held, name, depth + 1)
         try:
             yield
         finally:
-            _lock_depth -= 1
+            setattr(_held, name, depth)
         return
-    CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    with open(CACHE_DIR / "ddcutil.lock", "w") as lock:
+    LOCK_DIR.mkdir(parents=True, exist_ok=True)
+    with open(LOCK_DIR / f"{name}.lock", "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
-        _lock_depth = 1
+        setattr(_held, name, 1)
         try:
             yield
         finally:
-            _lock_depth = 0
+            setattr(_held, name, 0)
+
+
+def monitor_lock():
+    """Hold the lock that every ddcutil call needs."""
+    return _lock("ddcutil")
 
 
 def ddcutil(*args, timeout=15):
@@ -122,6 +137,8 @@ def factory_reset(bus):
     """
     with monitor_lock():
         before = {code: read_vcp(bus, code) for code in FEATURE_NAMES}
+        if before[BRIGHTNESS] is None:
+            return False  # not answering at all, so a reset would only lose its levels
         if not write_vcp(bus, FACTORY_RESET, 1):
             return False
         # While it resets, the monitor accepts commands and then ignores them,
@@ -140,6 +157,14 @@ def factory_reset(bus):
 def level(percent):
     """Return a new_value function for set_brightness that sets this level, in percent."""
     return lambda _, maximum: round(percent * maximum / 100)
+
+
+def to_percent(value, maximum):
+    return round(100 * value / maximum) if maximum else value
+
+
+def from_percent(percent, maximum):
+    return round(percent * maximum / 100)
 
 
 def set_brightness(new_value, sync_laptop=True):
@@ -180,6 +205,7 @@ def set_brightness_on(buses, new_value):
 def _set_brightness_on(buses, new_value):
     results = []
     levels = {}
+    maxima = {}
     for bus in buses:
         reading = read_vcp(bus, BRIGHTNESS)
         if reading is None:
@@ -189,17 +215,33 @@ def _set_brightness_on(buses, new_value):
         if value == current or write_vcp(bus, BRIGHTNESS, value):
             results.append((value, maximum))
             levels[bus] = value
-    record_levels(BRIGHTNESS, levels)
+            maxima[bus] = maximum
+    record_levels(BRIGHTNESS, levels, maxima)
     return results
 
 
-def record_levels(code, levels):
-    """Note {bus: value} as the monitors' current brightness or contrast. The window
-    and the top-bar menu watch this, so their sliders follow changes made elsewhere."""
-    if levels:
-        key = FEATURE_NAMES[code]
-        recorded = load_state().get(key, {})
-        update_state(**{key: {**recorded, **{str(bus): value for bus, value in levels.items()}}})
+def record_levels(code, levels, maxima=None):
+    """Note {bus: value} as the monitors' current brightness or contrast, and
+    optionally {bus: maximum}. The window and the top-bar menu watch this, so
+    their sliders follow changes made elsewhere."""
+    if not levels:
+        return
+    key = FEATURE_NAMES[code]
+
+    def merge(state):
+        state[key] = {**state.get(key, {}), **{str(bus): value for bus, value in levels.items()}}
+        if maxima:
+            # Kept per feature, as e.g. {"5": {"brightness": 100, "contrast": 100}}.
+            recorded = state.setdefault("maxima", {})
+            for bus, maximum in maxima.items():
+                recorded.setdefault(str(bus), {})[key] = maximum
+
+    modify_state(merge)
+
+
+def recorded_maximum(state, bus, code):
+    """The monitor's maximum for a feature, as last read; most monitors use 100."""
+    return state.get("maxima", {}).get(str(bus), {}).get(FEATURE_NAMES[code], 100)
 
 
 class Writer(threading.Thread):
@@ -229,17 +271,24 @@ class Writer(threading.Thread):
                 while not self.pending:
                     self.cond.wait()
                 code, value = self.pending.popitem()
-            for _ in range(3):
-                if write_vcp(self.bus, code, value):
-                    record_levels(code, {self.bus: value})
-                    break
-                with self.cond:
-                    if code in self.pending:  # a newer value replaces this one
-                        break
-                time.sleep(0.3)
-            else:
-                if self.on_error:
-                    self.on_error(code, value)
+            try:
+                written = self._write(code, value)
+            except Exception as error:  # a hung or vanished monitor must not stop this writer for good
+                print(f"Writing {FEATURE_NAMES.get(code, code)} {value} to bus {self.bus} failed: {error}", flush=True)
+                written = False
+            if not written and self.on_error:
+                self.on_error(code, value)
+
+    def _write(self, code, value):
+        for _ in range(3):
+            if write_vcp(self.bus, code, value):
+                record_levels(code, {self.bus: value})
+                return True
+            with self.cond:
+                if code in self.pending:  # a newer value replaces this one
+                    return True
+            time.sleep(0.3)
+        return False
 
 
 def parse_time(text):
@@ -256,7 +305,9 @@ def current_slot(schedule, now):
     slot_key names one occurrence of an entry, like "2026-11-09 18:00", so the
     timer can tell when a new one has started.
     """
-    entries = sorted((parse_time(t), p) for t, p in schedule if parse_time(t) and p in PRESET_NAMES)
+    entries = sorted((parse_time(entry[0]), entry[1]) for entry in schedule
+                     if isinstance(entry, (list, tuple)) and len(entry) == 2
+                     and isinstance(entry[0], str) and parse_time(entry[0]) and entry[1] in PRESET_NAMES)
     if not entries:
         return None
     started = [e for e in entries if e[0] <= now.strftime("%H:%M")]
@@ -269,24 +320,59 @@ def current_slot(schedule, now):
     return f"{day} {time}", preset
 
 
+def seconds_until_next_switch(schedule, now):
+    """Seconds from `now` until the schedule's next switch time, or None if it has none."""
+    times = sorted({parse_time(entry[0]) for entry in schedule
+                    if isinstance(entry, (list, tuple)) and len(entry) == 2
+                    and isinstance(entry[0], str) and parse_time(entry[0])})
+    if not times:
+        return None
+    today = now.replace(second=0, microsecond=0)
+    for day in (0, 1):
+        for at in times:
+            hour, minute = map(int, at.split(":"))
+            switch = today.replace(hour=hour, minute=minute) + timedelta(days=day)
+            if switch > now:
+                return max(1, int((switch - now).total_seconds()))
+    return None
+
+
 def _load_json(path, default):
     data = copy.deepcopy(default)
     try:
-        data.update(json.loads(path.read_text()))
+        loaded = json.loads(path.read_text())
     except (OSError, ValueError):
-        pass
+        return data
+    if isinstance(loaded, dict):
+        data.update(loaded)
     return data
 
 
 def _save_json(path, data):
+    """Replace the file in one step, through a temporary file of this write's own,
+    so a reader never sees half a file and two writers can't mix theirs."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(json.dumps(data, indent=2) + "\n")
-    tmp.replace(path)
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(json.dumps(data, indent=2) + "\n")
+        os.replace(tmp, path)
+    except BaseException:
+        os.unlink(tmp)
+        raise
 
 
 def load_config():
-    return _load_json(CONFIG_FILE, DEFAULT_CONFIG)
+    """The settings, with anything of the wrong shape (say, from hand-editing) replaced by its default."""
+    config = _load_json(CONFIG_FILE, DEFAULT_CONFIG)
+    for key, default in DEFAULT_CONFIG.items():
+        if type(config.get(key)) is not type(default):
+            config[key] = copy.deepcopy(default)
+    config["presets"] = {name: value for name, value in config["presets"].items()
+                         if name in PRESET_NAMES and type(value) is int}
+    config["schedule"] = [entry for entry in config["schedule"]
+                          if isinstance(entry, list) and len(entry) == 2 and all(isinstance(x, str) for x in entry)]
+    return config
 
 
 def presets():
@@ -296,12 +382,25 @@ def presets():
 
 def update_config(**changes):
     """Save just these settings, so parts of the window don't overwrite each other's changes."""
-    _save_json(CONFIG_FILE, {**load_config(), **changes})
+    with _lock("config"):
+        _save_json(CONFIG_FILE, {**load_config(), **changes})
 
 
 def load_state():
+    if not STATE_FILE.exists() and OLD_STATE_FILE.exists():
+        return _load_json(OLD_STATE_FILE, {})
     return _load_json(STATE_FILE, {})
 
 
+def modify_state(change):
+    """Load the state, let change(state) edit it, and save it, all under one lock,
+    so changes made at the same moment by other threads or processes aren't lost."""
+    with _lock("state"):
+        state = load_state()
+        change(state)
+        _save_json(STATE_FILE, state)
+        OLD_STATE_FILE.unlink(missing_ok=True)  # migrated by the save above
+
+
 def update_state(**changes):
-    _save_json(STATE_FILE, {**load_state(), **changes})
+    modify_state(lambda state: state.update(changes))
