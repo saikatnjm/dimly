@@ -17,7 +17,7 @@
     <ul>
       <li>Brightness and contrast sliders, plus one-click Night, Evening, Day and Max presets you can adjust</li>
       <li>Your laptop's brightness keys change the external monitors too</li>
-      <li>Keyboard shortcuts for brighter and dimmer</li>
+      <li>A top-bar menu, and keyboard shortcuts for brighter and dimmer</li>
       <li>Switches preset by time of day; a change you make yourself lasts until the next switch</li>
       <li>Newly connected monitors join in automatically</li>
       <li>Factory reset for monitors whose backlight has stopped dimming</li>
@@ -49,6 +49,14 @@
   </supports>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="0.3.0" date="2026-11-10">
+      <description>
+        <ul>
+          <li>Top-bar menu with brightness, contrast and presets, so you don't need to open the window</li>
+          <li>The window's contrast slider also follows changes made elsewhere</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.2.0" date="2026-11-09">
       <description>
         <ul>

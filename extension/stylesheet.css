@@ -1,0 +1,12 @@
+.dimly-value {
+  min-width: 2.2em;
+  text-align: right;
+}
+
+.dimly-presets {
+  spacing: 6px;
+}
+
+.dimly-preset {
+  padding: 4px 8px;
+}

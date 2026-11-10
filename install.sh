@@ -11,10 +11,12 @@ bindir="$HOME/.local/bin"
 share="$HOME/.local/share"
 units="$HOME/.config/systemd/user"
 
+extension="$share/gnome-shell/extensions/dimly@saikatnjm.github.io"
 mkdir -p "$dest" "$bindir" "$units" "$share/applications" "$share/metainfo" \
-         "$share/icons/hicolor/scalable/apps"
+         "$share/icons/hicolor/scalable/apps" "$(dirname "$extension")"
+rm -rf "$extension" && cp -r "$src/extension" "$extension"
 install -m 755 "$src/src/dimly.py" "$dest/dimly.py"
-install -m 644 "$src/src/ddc.py" "$src/src/gui.py" "$src/src/laptop.py" "$src/src/integration.py" "$dest/"
+find "$src/src" -maxdepth 1 -name "*.py" ! -name dimly.py -exec install -m 644 {} "$dest/" \;
 ln -sf "$dest/dimly.py" "$bindir/dimly"
 
 sed "s|@BINDIR@|$bindir|" "$src/data/$app_id.desktop.in" > "$share/applications/$app_id.desktop"

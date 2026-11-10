@@ -19,51 +19,17 @@ import laptop  # noqa: E402
 LOCAL_CHANGE_GRACE = 2.0
 
 
-class Writer(threading.Thread):
-    """Sends the latest requested value per feature to one monitor, one write at a time."""
-
-    def __init__(self, bus, on_error):
-        super().__init__(daemon=True)
-        self.bus = bus
-        self.on_error = on_error
-        self.pending = {}
-        self.cond = threading.Condition()
-
-    def request(self, code, value):
-        with self.cond:
-            self.pending[code] = value
-            self.cond.notify()
-
-    def run(self):
-        while True:
-            with self.cond:
-                while not self.pending:
-                    self.cond.wait()
-                code, value = self.pending.popitem()
-            for _ in range(3):
-                if ddc.write_vcp(self.bus, code, value):
-                    if code == ddc.BRIGHTNESS:
-                        ddc.record_brightness({self.bus: value})
-                    break
-                with self.cond:
-                    if code in self.pending:  # a newer value replaces this one
-                        break
-                time.sleep(0.3)
-            else:
-                GLib.idle_add(self.on_error, code, value)
-
-
 class MonitorGroup(Adw.PreferencesGroup):
     def __init__(self, writer, name, values):
         super().__init__(title=name)
         self.writer = writer
-        self.brightness = None
+        self.scales = {}
         self.preset_buttons = {}
         self.handlers = {}
         self.last_local_change = 0.0
         self.catch_up = 0
         if values.get(ddc.BRIGHTNESS):
-            self.brightness = self._slider_row("Brightness", ddc.BRIGHTNESS, *values[ddc.BRIGHTNESS])
+            self._slider_row("Brightness", ddc.BRIGHTNESS, *values[ddc.BRIGHTNESS])
             self.add(self._preset_row())
         if values.get(ddc.CONTRAST):
             self._slider_row("Contrast", ddc.CONTRAST, *values[ddc.CONTRAST])
@@ -78,11 +44,11 @@ class MonitorGroup(Adw.PreferencesGroup):
         # Fixed width so every slider lines up whatever its title's length.
         scale.set_size_request(300, -1)
         scale.set_valign(Gtk.Align.CENTER)
-        self.handlers[scale] = scale.connect("value-changed", self._changed, code, maximum)
+        self.handlers[code] = scale.connect("value-changed", self._changed, code, maximum)
+        self.scales[code] = scale
         row = Adw.ActionRow(title=title)
         row.add_suffix(scale)
         self.add(row)
-        return scale
 
     def _changed(self, scale, code, maximum):
         self.last_local_change = time.monotonic()
@@ -91,24 +57,23 @@ class MonitorGroup(Adw.PreferencesGroup):
         if code == ddc.BRIGHTNESS and ddc.load_config()["sync_laptop"]:
             laptop.set_brightness(round(100 * value / maximum), wait=False)
 
-    def show_brightness(self, value):
-        """Move the slider to a level set outside the window, without sending it back out."""
-        if not self.brightness:
-            return
+    def show_recorded(self, state):
+        """Move the sliders to levels set outside the window, without sending them back out."""
         wait = LOCAL_CHANGE_GRACE - (time.monotonic() - self.last_local_change)
         if wait > 0:
             # Catch up once you've let go, with whatever was recorded last.
             if not self.catch_up:
                 self.catch_up = GLib.timeout_add(int(wait * 1000) + 50, self._catch_up)
             return
-        with self.brightness.handler_block(self.handlers[self.brightness]):
-            self.brightness.set_value(value)
+        for code, scale in self.scales.items():
+            value = state.get(ddc.FEATURE_NAMES[code], {}).get(str(self.writer.bus))
+            if value is not None:
+                with scale.handler_block(self.handlers[code]):
+                    scale.set_value(value)
 
     def _catch_up(self):
         self.catch_up = 0
-        value = ddc.load_state().get("brightness", {}).get(str(self.writer.bus))
-        if value is not None:
-            self.show_brightness(value)
+        self.show_recorded(ddc.load_state())
         return GLib.SOURCE_REMOVE
 
     def _preset_row(self):
@@ -118,7 +83,7 @@ class MonitorGroup(Adw.PreferencesGroup):
         for name in ddc.PRESET_NAMES:
             button = Gtk.Button(label=name)
             # Read the level on click, so edits in Preset levels apply straight away.
-            button.connect("clicked", lambda _, n=name: self.brightness.set_value(ddc.presets()[n]))
+            button.connect("clicked", lambda _, n=name: self.scales[ddc.BRIGHTNESS].set_value(ddc.presets()[n]))
             buttons.append(button)
             self.preset_buttons[name] = button
         self.update_preset_tooltips()
@@ -225,6 +190,27 @@ class LaptopGroup(Adw.PreferencesGroup):
         ddc.update_config(sync_laptop=switch.get_active())
 
 
+class TopBarGroup(Adw.PreferencesGroup):
+    def __init__(self):
+        super().__init__(title="Top bar")
+        switch = Gtk.Switch(active=integration.top_bar_enabled(), valign=Gtk.Align.CENTER)
+        switch.connect("notify::active", self._toggled)
+        self.row = Adw.ActionRow(title="Show Dimly in the top bar", activatable_widget=switch)
+        self.row.add_suffix(switch)
+        self.add(self.row)
+        self._update_subtitle(switch.get_active())
+
+    def _toggled(self, switch, _):
+        integration.set_top_bar(switch.get_active())
+        self._update_subtitle(switch.get_active())
+
+    def _update_subtitle(self, enabled):
+        if enabled and not integration.gnome_has_loaded_extension():
+            self.row.set_subtitle("Log out and back in once to see it")
+        else:
+            self.row.set_subtitle("Brightness, contrast and presets, one click away")
+
+
 class ShortcutsGroup(Adw.PreferencesGroup):
     def __init__(self):
         super().__init__(title="Keyboard shortcuts",
@@ -270,10 +256,9 @@ class DimlyWindow(Adw.ApplicationWindow):
     def _state_changed(self, _monitor, _file, _other, event):
         if event == Gio.FileMonitorEvent.DELETED:
             return
-        levels = ddc.load_state().get("brightness", {})
-        for bus, group in self.monitor_groups.items():
-            if str(bus) in levels:
-                group.show_brightness(levels[str(bus)])
+        state = ddc.load_state()
+        for group in self.monitor_groups.values():
+            group.show_recorded(state)
 
     def _presets_changed(self):
         for group in self.monitor_groups.values():
@@ -305,14 +290,16 @@ class DimlyWindow(Adw.ApplicationWindow):
         self.monitor_groups = {}
         for bus, name, values in found:
             if bus not in self.writers:
-                self.writers[bus] = Writer(bus, lambda code, value, n=name: self._write_failed(n, code, value))
-                self.writers[bus].start()
+                self.writers[bus] = ddc.Writer(
+                    bus, lambda code, value, n=name: GLib.idle_add(self._write_failed, n, code, value))
             self.monitor_groups[bus] = MonitorGroup(self.writers[bus], name, values)
             page.add(self.monitor_groups[bus])
         if self.has_laptop_screen:
             page.add(LaptopGroup())
         page.add(PresetsGroup(self._presets_changed))
         page.add(ScheduleGroup())
+        if integration.extension_installed():
+            page.add(TopBarGroup())
         page.add(ShortcutsGroup())
         self.content.set_child(page)
 

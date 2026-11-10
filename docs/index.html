@@ -75,6 +75,8 @@
     border: 1px solid var(--line); color: var(--text); background: var(--surface);
   }
   .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  .btn .version { display: block; font-size: 12px; font-weight: 500; opacity: 0.8; }
+  .btn .version:empty { display: none; }
   .art {
     aspect-ratio: 4 / 3; border-radius: 18px; display: grid; place-items: center;
     background: linear-gradient(160deg, var(--hero-from), #6b4a8a 60%, var(--hero-to));
@@ -138,8 +140,9 @@
         <span lang="bn">লিনাক্সে সাধারণত শুধু ল্যাপটপের স্ক্রিনের আলো কমানো-বাড়ানো যায়। Dimly ক্যাবলের মাধ্যমেই বাইরের মনিটরের আসল ব্যাকলাইট নিয়ন্ত্রণ করে, ল্যাপটপের সাথে তাল মিলিয়ে রাখে, আর দিনের সময় বুঝে দুটোর আলোই কমিয়ে দেয়।</span>
       </p>
       <div class="actions">
-        <a class="btn primary" href="https://github.com/saikatnjm/dimly/releases/latest">
+        <a class="btn primary" data-download href="https://github.com/saikatnjm/dimly/releases/latest">
           <span lang="en">Download for Ubuntu</span><span lang="bn">Ubuntu-র জন্য ডাউনলোড করুন</span>
+          <span class="version" data-version></span>
         </a>
         <a class="btn" href="https://github.com/saikatnjm/dimly">
           <span lang="en">Source on GitHub</span><span lang="bn">GitHub-এ সোর্স কোড দেখুন</span>
@@ -167,8 +170,8 @@
         <p><span lang="en">Switches preset by time of day. If you change it yourself, your setting lasts until the next switch.</span><span lang="bn">দিনের কোন সময়ে কোন প্রিসেট থাকবে ঠিক করে দিন। মাঝখানে নিজে বদলালে সেটাই থাকবে পরের নির্ধারিত সময় পর্যন্ত।</span></p>
       </div>
       <div class="card"><div class="dot"></div>
-        <h3><span lang="en">Keyboard shortcuts</span><span lang="bn">কীবোর্ড শর্টকাট</span></h3>
-        <p><span lang="en"><kbd>Super</kbd>+<kbd>F6</kbd> brighter, <kbd>Super</kbd>+<kbd>F5</kbd> dimmer. Change the keys in GNOME Settings.</span><span lang="bn"><kbd>Super</kbd>+<kbd>F6</kbd> চাপলে আলো বাড়ে, <kbd>Super</kbd>+<kbd>F5</kbd> চাপলে কমে। চাইলে GNOME Settings থেকে কী বদলে নিতে পারেন।</span></p>
+        <h3><span lang="en">Right in the top bar</span><span lang="bn">টপ বার থেকেই</span></h3>
+        <p><span lang="en">Brightness, contrast and presets from the Dimly icon in the top bar, or <kbd>Super</kbd>+<kbd>F6</kbd> and <kbd>Super</kbd>+<kbd>F5</kbd>.</span><span lang="bn">উপরের বারে Dimly-র আইকন থেকেই ব্রাইটনেস, কনট্রাস্ট আর প্রিসেট। অথবা <kbd>Super</kbd>+<kbd>F6</kbd> আর <kbd>Super</kbd>+<kbd>F5</kbd> চাপুন।</span></p>
       </div>
       <div class="card"><div class="dot"></div>
         <h3><span lang="en">Plug-and-play monitors</span><span lang="bn">লাগালেই কাজ শুরু</span></h3>
@@ -196,13 +199,13 @@
     <h2><span lang="en">Install</span><span lang="bn">ইনস্টল</span></h2>
     <ol class="steps">
       <li>
-        <span lang="en">Download <code>dimly_0.2.0_all.deb</code> from the <a href="https://github.com/saikatnjm/dimly/releases/latest">releases page</a>, then install it:</span>
-        <span lang="bn"><a href="https://github.com/saikatnjm/dimly/releases/latest">রিলিজ পেজ</a> থেকে <code>dimly_0.2.0_all.deb</code> ফাইলটা নামিয়ে নিন, তারপর ইনস্টল করুন:</span>
-        <pre><code>sudo apt install ./dimly_0.2.0_all.deb</code></pre>
+        <span lang="en">Download <a data-download href="https://github.com/saikatnjm/dimly/releases/latest"><code data-deb-name>dimly_0.3.0_all.deb</code></a>, then install it:</span>
+        <span lang="bn"><a data-download href="https://github.com/saikatnjm/dimly/releases/latest"><code data-deb-name>dimly_0.3.0_all.deb</code></a> ফাইলটা নামিয়ে নিন, তারপর ইনস্টল করুন:</span>
+        <pre><code>sudo apt install ./<span data-deb-name>dimly_0.3.0_all.deb</span></code></pre>
       </li>
       <li>
-        <span lang="en"><strong>Log out and back in once</strong>, so your account can reach monitors.</span>
-        <span lang="bn"><strong>একবার লগ আউট করে আবার লগ ইন করুন</strong>, তাহলে আপনার অ্যাকাউন্ট মনিটরের সাথে যোগাযোগ করতে পারবে।</span>
+        <span lang="en"><strong>Log out and back in once</strong>, so your account can reach monitors and the top-bar menu appears.</span>
+        <span lang="bn"><strong>একবার লগ আউট করে আবার লগ ইন করুন</strong>, তাহলে আপনার অ্যাকাউন্ট মনিটরের সাথে যোগাযোগ করতে পারবে আর টপ বারের মেনুটা দেখা যাবে।</span>
       </li>
       <li>
         <span lang="en">Open <strong>Dimly</strong> from the app menu. The first start adds the shortcuts and starts the background services.</span>
@@ -255,6 +258,25 @@
     var browserBangla = (navigator.language || "").toLowerCase().indexOf("bn") === 0;
     setLang(saved || (browserBangla ? "bn" : "en"));
     buttons.forEach(function (b) { b.addEventListener("click", function () { setLang(b.dataset.setLang); }); });
+  })();
+
+  // Point the download links straight at the latest release's .deb, so clicking
+  // downloads it. Without this (or if GitHub can't be reached) they keep linking
+  // to the releases page.
+  (function () {
+    fetch("https://api.github.com/repos/saikatnjm/dimly/releases/latest")
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function (release) {
+        var deb = (release.assets || []).find(function (a) { return /\.deb$/.test(a.name); });
+        if (!deb) return;
+        document.querySelectorAll("[data-download]").forEach(function (a) { a.href = deb.browser_download_url; });
+        document.querySelectorAll("[data-deb-name]").forEach(function (el) { el.textContent = deb.name; });
+        var kb = Math.max(1, Math.round(deb.size / 1024));
+        document.querySelectorAll("[data-version]").forEach(function (el) {
+          el.textContent = release.tag_name + " · " + kb + " KB";
+        });
+      })
+      .catch(function () {});
   })();
 </script>
 </body>

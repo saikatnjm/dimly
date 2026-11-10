@@ -16,8 +16,11 @@ mkdir -p "$stage/DEBIAN" "$stage/usr/bin" "$stage/usr/share/dimly" "$stage/usr/s
          "$stage/usr/lib/modules-load.d"
 
 install -m 755 "$root/src/dimly.py" "$stage/usr/share/dimly/"
-install -m 644 "$root/src/ddc.py" "$root/src/gui.py" "$root/src/laptop.py" "$root/src/integration.py" \
-        "$stage/usr/share/dimly/"
+find "$root/src" -maxdepth 1 -name "*.py" ! -name dimly.py -exec install -m 644 {} "$stage/usr/share/dimly/" \;
+extension="$stage/usr/share/gnome-shell/extensions/dimly@saikatnjm.github.io"
+mkdir -p "$extension/icons"
+install -m 644 "$root"/extension/*.js "$root"/extension/*.json "$root"/extension/*.css "$extension/"
+install -m 644 "$root"/extension/icons/*.svg "$extension/icons/"
 ln -s ../share/dimly/dimly.py "$stage/usr/bin/dimly"
 
 sed "s|@BINDIR@|/usr/bin|" "$root/data/$app_id.desktop.in" > "$stage/usr/share/applications/$app_id.desktop"
@@ -41,6 +44,7 @@ Section: utils
 Priority: optional
 Architecture: all
 Depends: python3 (>= 3.10), python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1, ddcutil
+Recommends: gnome-shell
 Maintainer: Saikat Roy <njmsaikat@gmail.com>
 Homepage: https://github.com/saikatnjm/dimly
 Description: Easy-on-the-eyes brightness for external monitors

@@ -13,6 +13,7 @@ import os
 import re
 import shutil
 import subprocess
+import threading
 import time
 from contextlib import contextmanager
 from datetime import timedelta
@@ -136,6 +137,11 @@ def factory_reset(bus):
     return True
 
 
+def level(percent):
+    """Return a new_value function for set_brightness that sets this level, in percent."""
+    return lambda _, maximum: round(percent * maximum / 100)
+
+
 def set_brightness(new_value, sync_laptop=True):
     """Set every monitor's brightness to new_value(current, maximum).
 
@@ -183,16 +189,57 @@ def _set_brightness_on(buses, new_value):
         if value == current or write_vcp(bus, BRIGHTNESS, value):
             results.append((value, maximum))
             levels[bus] = value
-    record_brightness(levels)
+    record_levels(BRIGHTNESS, levels)
     return results
 
 
-def record_brightness(levels):
-    """Note {bus: value} as the monitors' brightness. An open window watches this,
-    so its sliders follow the shortcuts, the schedule and the laptop's keys."""
+def record_levels(code, levels):
+    """Note {bus: value} as the monitors' current brightness or contrast. The window
+    and the top-bar menu watch this, so their sliders follow changes made elsewhere."""
     if levels:
-        recorded = load_state().get("brightness", {})
-        update_state(brightness={**recorded, **{str(bus): value for bus, value in levels.items()}})
+        key = FEATURE_NAMES[code]
+        recorded = load_state().get(key, {})
+        update_state(**{key: {**recorded, **{str(bus): value for bus, value in levels.items()}}})
+
+
+class Writer(threading.Thread):
+    """Sends the latest requested value per feature to one monitor, one write at a time.
+
+    While a slider is dragged, only the newest position is sent once the monitor
+    is free, so it never falls behind. on_error(code, value) is called from this
+    thread when the monitor keeps refusing a value.
+    """
+
+    def __init__(self, bus, on_error=None):
+        super().__init__(daemon=True)
+        self.bus = bus
+        self.on_error = on_error
+        self.pending = {}
+        self.cond = threading.Condition()
+        self.start()
+
+    def request(self, code, value):
+        with self.cond:
+            self.pending[code] = value
+            self.cond.notify()
+
+    def run(self):
+        while True:
+            with self.cond:
+                while not self.pending:
+                    self.cond.wait()
+                code, value = self.pending.popitem()
+            for _ in range(3):
+                if write_vcp(self.bus, code, value):
+                    record_levels(code, {self.bus: value})
+                    break
+                with self.cond:
+                    if code in self.pending:  # a newer value replaces this one
+                        break
+                time.sleep(0.3)
+            else:
+                if self.on_error:
+                    self.on_error(code, value)
 
 
 def parse_time(text):

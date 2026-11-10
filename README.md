@@ -15,6 +15,8 @@ its buttons, and keeps it at the same level as your laptop all day.
   The sliders follow changes made with the keys, shortcuts or schedule.
 - **Laptop sync**: the laptop's brightness keys change the external monitors too,
   and the sliders change both.
+- **Top-bar menu**: brightness, contrast and the presets one click away, from the
+  Dimly icon in the top bar. No need to open the window.
 - **Keyboard shortcuts**: <kbd>Super</kbd>+<kbd>F6</kbd> brighter,
   <kbd>Super</kbd>+<kbd>F5</kbd> dimmer.
 - **Schedule**: switches preset by time of day. A change you make yourself lasts
@@ -34,12 +36,14 @@ Download `dimly_<version>_all.deb` from the
 [releases page](https://github.com/saikatnjm/dimly/releases), then:
 
 ```bash
-sudo apt install ./dimly_0.2.0_all.deb
+sudo apt install ./dimly_0.3.0_all.deb
 ```
 
-Log out and back in once, so your account can reach monitors. Then open
-**Dimly** from the app menu. The first start adds the keyboard shortcuts and
-starts the background services.
+Log out and back in once, so your account can reach monitors and GNOME picks up
+the top-bar menu. Then open **Dimly** from the app menu. The first start adds the
+keyboard shortcuts, starts the background services and shows the top-bar menu.
+
+To upgrade, install the new `.deb` the same way, then log out and back in.
 
 ### From source
 
@@ -84,7 +88,8 @@ ddcutil getvcp 10
 
 | To | Do this |
 |---|---|
-| Change brightness on all screens | Laptop brightness keys, the Brightness slider, or <kbd>Super</kbd>+<kbd>F6</kbd> / <kbd>F5</kbd> |
+| Change brightness on all screens | Laptop brightness keys, the Dimly icon in the top bar, the Brightness slider, or <kbd>Super</kbd>+<kbd>F6</kbd> / <kbd>F5</kbd> |
+| Hide the top-bar icon | Turn off **Show Dimly in the top bar** in the window |
 | Change the schedule | Edit the times and presets in the **Schedule** section |
 | Change the shortcut keys | GNOME Settings → Keyboard → Custom Shortcuts |
 | Keep the laptop screen separate | Turn off **Keep in sync with the monitor** |
