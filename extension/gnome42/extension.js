@@ -20,6 +20,13 @@ const APP_ID = 'io.github.saikatnjm.Dimly';
 const BUS_NAME = 'io.github.saikatnjm.Dimly.Service';
 const OBJECT_PATH = '/io/github/saikatnjm/Dimly/Service';
 const PRESETS = ['Night', 'Evening', 'Day', 'Max'];
+const CONFIG_FILE = GLib.build_filenamev([GLib.get_user_config_dir(), 'dimly', 'config.json']);
+// Where the menu goes, chosen in Dimly's window, as [part of the top bar, index in it]:
+// left of the system icons, just after the clock, or just after Activities.
+const PLACES = { right: ['right', 0], center: ['center', 1], left: ['left', 1] };
+// Warmth is GNOME's night light, for every screen: 0 is off, 100 the warmest.
+const NIGHT_LIGHT_SCHEMA = 'org.gnome.settings-daemon.plugins.color';
+const COOLEST = 6500, WARMEST = 1700;  // kelvin at warmth 0 and 100
 // After you move a slider, outside updates wait this long, so a change still on
 // its way back from the monitor doesn't pull the slider from under you.
 const LOCAL_CHANGE_GRACE_MS = 2000;
@@ -40,6 +47,16 @@ const ServiceInterface = `<node>
   </interface>
 </node>`;
 const ServiceProxy = Gio.DBusProxy.makeProxyWrapper(ServiceInterface);
+
+function readPosition() {
+    try {
+        const [, bytes] = GLib.file_get_contents(CONFIG_FILE);
+        const position = JSON.parse(new TextDecoder().decode(bytes)).top_bar_position;
+        return Object.prototype.hasOwnProperty.call(PLACES, position) ? position : 'right';
+    } catch (e) {
+        return 'right';  // no settings file yet, or one being rewritten
+    }
+}
 
 function extensionIcon(name) {
     return Gio.icon_new_for_string(`${Me.path}/icons/${name}.svg`);
@@ -101,13 +118,27 @@ class DimlyIndicator extends PanelMenu.Button {
             'Brightness', value => this._call('SetBrightness', value));
         this._contrast = new SliderItem(extensionIcon('dimly-contrast-symbolic'),
             'Contrast', value => this._call('SetContrast', value));
+        this._warmth = new SliderItem(new Gio.ThemedIcon({ name: 'weather-clear-night-symbolic' }),
+            'Warmth', value => this._setWarmth(value));
+        // Gio.Settings aborts GNOME Shell on a missing schema, so look it up first.
+        const source = Gio.SettingsSchemaSource.get_default();
+        this._nightLight = source && source.lookup(NIGHT_LIGHT_SCHEMA, true)
+            ? new Gio.Settings({ schema_id: NIGHT_LIGHT_SCHEMA }) : null;
+        this._nightLightChangedId = this._nightLight
+            ? this._nightLight.connect('changed', () => this._showWarmth()) : 0;
+        this._previewId = 0;
+        this._warmthCatchUpId = 0;
         this._presets = this._presetItem();
         this._unavailable = new PopupMenu.PopupMenuItem("Dimly's background service isn't running",
             { reactive: false });
+        // Dimly only adjusts external monitors; a laptop's own screen is GNOME's job.
+        this._noMonitor = new PopupMenu.PopupMenuItem('No adjustable monitor found', { reactive: false });
         this.menu.addMenuItem(this._brightness);
         this.menu.addMenuItem(this._contrast);
+        this.menu.addMenuItem(this._warmth);
         this.menu.addMenuItem(this._presets);
         this.menu.addMenuItem(this._unavailable);
+        this.menu.addMenuItem(this._noMonitor);
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         this.menu.addAction('Open Dimly', () => {
             const app = Shell.AppSystem.get_default().lookup_app(`${APP_ID}.desktop`);
@@ -139,6 +170,50 @@ class DimlyIndicator extends PanelMenu.Button {
                 this._refresh();
         });
         this._setAvailable(false);
+        this._showWarmth();
+    }
+
+    _setWarmth(level) {
+        if (this._previewId) {
+            GLib.source_remove(this._previewId);
+            this._previewId = 0;
+        }
+        if (level <= 0) {
+            this._nightLight.set_boolean('night-light-enabled', false);
+            return;
+        }
+        this._nightLight.set_uint('night-light-temperature', Math.round(COOLEST - (COOLEST - WARMEST) * level / 100));
+        this._nightLight.set_boolean('night-light-enabled', true);
+        // Show the warmth even if the night light isn't due yet, once you pause.
+        this._previewId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 300, () => {
+            this._previewId = 0;
+            Gio.DBus.session.call('org.gnome.SettingsDaemon.Color', '/org/gnome/SettingsDaemon/Color',
+                'org.gnome.SettingsDaemon.Color', 'NightLightPreview', new GLib.Variant('(u)', [3]),
+                null, Gio.DBusCallFlags.NONE, -1, null, null);
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _showWarmth() {
+        if (!this._nightLight) {
+            this._warmth.setValue(-1);  // no night light on this desktop
+            return;
+        }
+        const sinceLocal = Date.now() - this._warmth.lastLocalChange;
+        if (sinceLocal < LOCAL_CHANGE_GRACE_MS) {
+            // Probably your own drag coming back; look again once you've let go.
+            if (!this._warmthCatchUpId) {
+                this._warmthCatchUpId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, LOCAL_CHANGE_GRACE_MS - sinceLocal + 50, () => {
+                    this._warmthCatchUpId = 0;
+                    this._showWarmth();
+                    return GLib.SOURCE_REMOVE;
+                });
+            }
+            return;
+        }
+        const kelvin = this._nightLight.get_uint('night-light-temperature');
+        const level = Math.max(1, Math.min(100, Math.round((COOLEST - kelvin) * 100 / (COOLEST - WARMEST))));
+        this._warmth.setValue(this._nightLight.get_boolean('night-light-enabled') ? level : 0);
     }
 
     _presetItem() {
@@ -166,10 +241,11 @@ class DimlyIndicator extends PanelMenu.Button {
 
     _setAvailable(available) {
         this._unavailable.visible = !available;
-        this._presets.visible = available;
         if (!available) {
             this._brightness.visible = false;
             this._contrast.visible = false;
+            this._presets.visible = false;
+            this._noMonitor.visible = false;
         }
     }
 
@@ -199,11 +275,19 @@ class DimlyIndicator extends PanelMenu.Button {
         }
         this._brightness.setValue(brightness);
         this._contrast.setValue(contrast);
+        this._presets.visible = brightness >= 0;
+        this._noMonitor.visible = brightness < 0 && contrast < 0;
     }
 
     destroy() {
         this._destroyed = true;
         this._cancellable.cancel();
+        if (this._nightLightChangedId)
+            this._nightLight.disconnect(this._nightLightChangedId);
+        if (this._previewId)
+            GLib.source_remove(this._previewId);
+        if (this._warmthCatchUpId)
+            GLib.source_remove(this._warmthCatchUpId);
         if (this._catchUpId)
             GLib.source_remove(this._catchUpId);
         if (this._changedId)
@@ -216,12 +300,35 @@ class DimlyIndicator extends PanelMenu.Button {
 
 class Extension {
     enable() {
-        this._indicator = new DimlyIndicator();
-        Main.panel.addToStatusArea(Me.metadata.uuid, this._indicator);
+        this._position = readPosition();
+        this._place();
+        // Move the menu as soon as its position changes in Dimly's window.
+        this._configMonitor = Gio.File.new_for_path(CONFIG_FILE).monitor_file(Gio.FileMonitorFlags.NONE, null);
+        this._configChangedId = this._configMonitor.connect('changed', () => {
+            const position = readPosition();
+            if (position !== this._position) {
+                this._position = position;
+                this._place();
+            }
+        });
+    }
+
+    _place() {
+        this._indicator?.destroy();
+        this._indicator = null;
+        const [box, index] = PLACES[this._position];
+        const indicator = new DimlyIndicator();
+        Main.panel.addToStatusArea(Me.metadata.uuid, indicator, index, box);
+        this._indicator = indicator;
     }
 
     disable() {
-        this._indicator.destroy();
+        if (this._configMonitor) {
+            this._configMonitor.disconnect(this._configChangedId);
+            this._configMonitor.cancel();
+            this._configMonitor = null;
+        }
+        this._indicator?.destroy();
         this._indicator = null;
     }
 }

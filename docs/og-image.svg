@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <!-- Source of og-image.jpg, the picture shown when the website's link is shared. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#141a2b"/>
+      <stop offset="0.6" stop-color="#3a3f5c"/>
+      <stop offset="1" stop-color="#d99a8f"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#sky)"/>
+  <svg x="96" y="155" width="320" height="320" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="dusk" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#141a2b"/>
+      <stop offset="0.58" stop-color="#3a3f5c"/>
+      <stop offset="1" stop-color="#d99a8f"/>
+    </linearGradient>
+    <linearGradient id="bezel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#555b69"/>
+      <stop offset="1" stop-color="#2c3039"/>
+    </linearGradient>
+    <mask id="crescent">
+      <rect width="128" height="128" fill="#fff"/>
+      <circle cx="76" cy="47" r="16" fill="#000"/>
+    </mask>
+  </defs>
+  <path d="M53 97h22l4 12H49z" fill="#2c3039"/>
+  <rect x="36" y="106" width="56" height="8" rx="4" fill="#3b404c"/>
+  <rect x="8" y="16" width="112" height="84" rx="11" fill="url(#bezel)"/>
+  <rect x="15" y="23" width="98" height="70" rx="5" fill="url(#dusk)"/>
+  <circle cx="64" cy="56" r="20" fill="#ffefcc" mask="url(#crescent)"/>
+  <circle cx="34" cy="38" r="2" fill="#ffefcc" opacity="0.8"/>
+  <circle cx="92" cy="72" r="1.6" fill="#ffefcc" opacity="0.6"/>
+  <circle cx="42" cy="66" r="1.4" fill="#ffefcc" opacity="0.5"/>
+  <path d="M15 82c20-6 34-6 49-2s30 4 49-2v10a5 5 0 0 1-5 5H20a5 5 0 0 1-5-5z" fill="#0d1120" opacity="0.6"/>
+</svg>
+  <g font-family="Ubuntu, Inter, sans-serif" fill="#f4f0f1">
+    <text x="480" y="270" font-size="112" font-weight="700">Dimly</text>
+    <text x="484" y="345" font-size="40" fill-opacity="0.92">Monitor brightness, contrast</text>
+    <text x="484" y="397" font-size="40" fill-opacity="0.92">and warmth for Linux</text>
+    <text x="484" y="470" font-size="28" fill-opacity="0.75">Ubuntu · Linux Mint · Free and open source</text>
+  </g>
+</svg>

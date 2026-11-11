@@ -2,6 +2,21 @@
 
 All notable changes to Dimly. Versions follow [semantic versioning](https://semver.org/).
 
+## 0.4.0 – 2026-11-11
+
+- **Warmth:** a slider for less blue light on every screen, in the window and the menu.
+  It uses the desktop's own night light, from sunset to sunrise or all the time, and
+  previews the warmth while you choose during the day.
+- **Linux Mint:** the menu is also a Cinnamon panel applet, added to Mint's panel by itself.
+- The top-bar menu works on GNOME 45 to 50 (Ubuntu 24.04 to 26.04). GNOME 45 changed how
+  extensions are written, so Dimly ships both versions and the package links the one your
+  GNOME needs, again whenever GNOME is upgraded.
+- Choose where the menu sits in the top bar: right, next to the clock, or left. It moves
+  straight away.
+- The window's top-bar switch shows what GNOME is actually doing with the menu (showing,
+  needs a log out, not supported, or the error), and the menu says when no adjustable
+  monitor is connected.
+
 ## 0.3.0 – 2026-11-10
 
 - Top-bar menu with brightness, contrast and presets, so you don't need to open the window.

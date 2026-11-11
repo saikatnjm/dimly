@@ -25,7 +25,10 @@ jobs:
         run: python3 -m unittest discover -s tests -v
 
       - name: Extension syntax
-        run: node --check extension/extension.js
+        run: |
+          node --check extension/gnome42/extension.js
+          node --check extension/cinnamon/applet.js
+          cp extension/gnome45/extension.js /tmp/gnome45.mjs && node --check /tmp/gnome45.mjs
 
       - name: Shell scripts
         run: shellcheck install.sh uninstall.sh packaging/build-deb.sh

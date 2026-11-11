@@ -13,10 +13,13 @@ its buttons, and keeps it at the same level as your laptop all day.
 - **Brightness and contrast sliders** for each monitor, plus one-click
   **Night, Evening, Day and Max** presets, whose levels you can set.
   The sliders follow changes made with the keys, shortcuts or schedule.
+- **Warmth**: one slider for less blue light on every screen, through the desktop's
+  own night light, from sunset to sunrise or all the time.
 - **Laptop sync**: the laptop's brightness keys change the external monitors too,
   and the sliders change both.
-- **Top-bar menu**: brightness, contrast and the presets one click away, from the
-  Dimly icon in the top bar. No need to open the window.
+- **Top-bar menu**: brightness, contrast, warmth and the presets one click away,
+  from the Dimly icon in the top bar (on Linux Mint, in the panel). Put it on the
+  right, next to the clock or on the left.
 - **Keyboard shortcuts**: <kbd>Super</kbd>+<kbd>F6</kbd> brighter,
   <kbd>Super</kbd>+<kbd>F5</kbd> dimmer.
 - **Schedule**: switches preset by time of day. A change you make yourself lasts
@@ -25,9 +28,10 @@ its buttons, and keeps it at the same level as your laptop all day.
 - **Factory reset** for monitors whose backlight has stopped responding to
   brightness, keeping your brightness and contrast.
 
-Built for GNOME (Ubuntu 22.04 and later). The window, schedule and sliders work
-on other desktops too; laptop sync and the shortcuts need GNOME. The top-bar
-menu currently needs GNOME 42, as in Ubuntu 22.04.
+Built for GNOME 42 to 50 (Ubuntu 22.04 to 26.04) and Linux Mint's Cinnamon, where
+the menu lives in the panel. On Cinnamon, laptop sync and the automatic keyboard
+shortcuts aren't available yet; you can bind `dimly --up` and `dimly --down` to
+keys in Mint's Keyboard settings.
 
 ## Install
 
@@ -37,7 +41,7 @@ Download `dimly_<version>_all.deb` from the
 [releases page](https://github.com/saikatnjm/dimly/releases), then:
 
 ```bash
-sudo apt install ./dimly_0.3.0_all.deb
+sudo apt install ./dimly_0.4.0_all.deb
 ```
 
 Log out and back in once, so your account can reach monitors and GNOME picks up
@@ -114,6 +118,7 @@ ddcutil getvcp 10
 |---|---|
 | Change brightness on all screens | Laptop brightness keys, the Dimly icon in the top bar, the Brightness slider, or <kbd>Super</kbd>+<kbd>F6</kbd> / <kbd>F5</kbd> |
 | Hide the top-bar icon | Turn off **Show Dimly in the top bar** in the window |
+| Move the top-bar icon | Pick **Right**, **Next to the clock** or **Left** under **Position** |
 | Change the schedule | Edit the times and presets in the **Schedule** section |
 | Change the shortcut keys | GNOME Settings → Keyboard → Custom Shortcuts |
 | Keep the laptop screen separate | Turn off **Keep in sync with the monitor** |

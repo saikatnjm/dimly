@@ -16,6 +16,7 @@ from datetime import datetime
 from gi.repository import Gio, GLib
 
 import ddc
+import integration
 import laptop
 from notify import notify
 
@@ -135,6 +136,10 @@ class Service:
 
     def start_up(self):
         subprocess.run(["systemctl", "--user", "disable", "--now", OLD_SCHEDULE_TIMER], capture_output=True)
+        # After an Ubuntu upgrade, GNOME may need the other version of the top-bar menu.
+        if integration.top_bar_enabled() and integration.link_extension():
+            print(f"Linked the top-bar menu for GNOME {integration.gnome_version()}; "
+                  "it appears after the next log in.", flush=True)
         # Find the monitors first, so the top-bar menu works straight after a fresh install.
         read_levels([bus for bus, _ in ddc.detect_displays()])
         apply_schedule()

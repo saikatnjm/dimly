@@ -6,15 +6,23 @@ set -euo pipefail
 
 src="$(cd "$(dirname "$0")" && pwd)"
 app_id="io.github.saikatnjm.Dimly"
-dest="$HOME/.local/share/dimly"
+dest="${XDG_DATA_HOME:-$HOME/.local/share}/dimly"
 bindir="$HOME/.local/bin"
-share="$HOME/.local/share"
+share="${XDG_DATA_HOME:-$HOME/.local/share}"
 units="$HOME/.config/systemd/user"
 
-extension="$share/gnome-shell/extensions/dimly@saikatnjm.github.io"
 mkdir -p "$dest" "$bindir" "$units" "$share/applications" "$share/metainfo" \
-         "$share/icons/hicolor/scalable/apps" "$(dirname "$extension")"
-rm -rf "$extension" && cp -r "$src/extension" "$extension"
+         "$share/icons/hicolor/scalable/apps"
+# Both versions of the top-bar menu; "dimly --setup" links the one this GNOME needs.
+for variant in gnome42 gnome45; do
+    rm -rf "$dest/extension/$variant"
+    mkdir -p "$dest/extension/$variant"
+    cp -r "$src/extension/$variant/." "$src/extension/common/." "$dest/extension/$variant/"
+done
+# The Cinnamon (Linux Mint) panel applet.
+applet="$share/cinnamon/applets/dimly@saikatnjm.github.io"
+rm -rf "$applet" && mkdir -p "$applet"
+cp -r "$src/extension/cinnamon/." "$src/extension/common/." "$applet/"
 install -m 755 "$src/src/dimly.py" "$dest/dimly.py"
 find "$src/src" -maxdepth 1 -name "*.py" ! -name dimly.py -exec install -m 644 {} "$dest/" \;
 ln -sf "$dest/dimly.py" "$bindir/dimly"

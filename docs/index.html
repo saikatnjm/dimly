@@ -3,8 +3,117 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Dimly · Monitor brightness for Linux</title>
-<meta name="description" content="Dimly controls your external monitor's real backlight on Linux, keeps it in step with your laptop screen, and dims both on a schedule.">
+<title>Dimly · External monitor brightness control for Ubuntu &amp; Linux Mint</title>
+<meta name="description" content="Dimly controls your external monitors' real backlight on Linux, keeps them in step with your laptop screen, warms every screen at night, and dims them on a schedule. Free and open source, for Ubuntu and Linux Mint.">
+<link rel="canonical" href="https://saikatnjm.github.io/dimly/">
+<meta name="google-site-verification" content="RF5trxrdZtkytEnmTEsT2Wl1QqtxB0JtmKpjnZm3wFc">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Dimly">
+<meta property="og:title" content="Dimly · Monitor brightness for Linux">
+<meta property="og:description" content="Brightness, contrast and warmth for every screen, from the top bar. Free and open source, for Ubuntu and Linux Mint.">
+<meta property="og:url" content="https://saikatnjm.github.io/dimly/">
+<meta property="og:image" content="https://saikatnjm.github.io/dimly/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Dimly: monitor brightness, contrast and warmth for Linux">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Dimly",
+  "description": "Controls external monitors' brightness and contrast over DDC/CI, keeps them in step with the laptop screen, warms every screen through the desktop's night light, and dims them on a schedule.",
+  "url": "https://saikatnjm.github.io/dimly/",
+  "downloadUrl": "https://github.com/saikatnjm/dimly/releases/latest",
+  "image": "https://saikatnjm.github.io/dimly/og-image.jpg",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "Linux (Ubuntu 22.04 to 26.04, Linux Mint)",
+  "license": "https://opensource.org/licenses/MIT",
+  "isAccessibleForFree": true,
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "sameAs": ["https://github.com/saikatnjm/dimly"]
+}
+</script>
+<script type="application/ld+json" id="faq-data">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How do I change my external monitor's brightness on Ubuntu?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Ubuntu's own brightness keys and slider only control a laptop's built-in screen. Install Dimly: it adjusts external monitors over the cable with DDC/CI, from the top bar, your keyboard or a schedule."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is DDC/CI?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A standard that lets a computer change a monitor's settings, such as brightness and contrast, over the video cable: HDMI, DisplayPort, DVI or VGA. Most monitors made in the last fifteen years support it."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How is Dimly different from Night Light or ddcutil?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Night Light only changes colour, and ddcutil is a command-line tool. Dimly brings both together: it changes your monitors' real backlight through ddcutil and their warmth through Night Light, from one simple menu, and keeps every screen in step."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Will it work with my monitor?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Most desktop monitors support DDC/CI, the standard Dimly uses. If yours has a DDC/CI option in its menu, make sure it's on."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "It says \"No adjustable monitor found\".",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Many USB-C docks and DisplayLink adapters don't pass DDC/CI through. Try connecting the monitor directly with HDMI or DisplayPort."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "The number changes but the screen doesn't.",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Some monitors get stuck ignoring brightness. Use Factory reset in the monitor's section of the window."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does the monitor change a moment after the laptop?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Monitors take about half a second for each change, so Dimly sends one at a time. That's normal."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does it work on Linux Mint?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Install the same .deb; Dimly's menu appears in Mint's panel, with the same sliders and presets. Following the laptop's brightness keys isn't available on Mint yet: bind dimly --up and dimly --down to keys in Mint's Keyboard settings instead."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "My laptop has no external monitor. Is Dimly any use?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The warmth slider works on any screen, laptop included. Brightness and contrast are for external monitors; a laptop's own screen already follows its brightness keys."
+      }
+    }
+  ]
+}
+</script>
 <meta name="theme-color" content="#0f1117" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#f8f6f4" media="(prefers-color-scheme: light)">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -151,6 +260,10 @@
     content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 30%;
     background: linear-gradient(180deg, transparent, rgba(13, 17, 32, 0.55));
   }
+  .warm-tint {
+    position: absolute; inset: 0; z-index: 2; pointer-events: none;
+    background: #ff9a3c; mix-blend-mode: multiply; opacity: var(--warm, 0); transition: opacity .25s ease;
+  }
   .topbar {
     position: absolute; top: 0; left: 0; right: 0; height: 30px; display: flex; align-items: center; justify-content: space-between;
     padding: 0 12px; background: rgba(10, 12, 18, 0.82); color: #e9e6ea; font-size: 12px; font-weight: 600;
@@ -240,6 +353,9 @@
   }
 
   .faq { max-width: 760px; }
+  .prose { max-width: 760px; }
+  .prose p { margin: 0 0 18px; font-size: 17px; color: var(--muted); }
+  .prose p:first-child { color: var(--text); }
   .faq details { border-bottom: 1px solid var(--line); }
   .faq summary {
     list-style: none; cursor: pointer; padding: 20px 0; font-weight: 600; font-size: 17px;
@@ -327,14 +443,14 @@
         <span lang="bn">মনিটরের আলো থাকুক <span class="grad">চোখের আরামে</span></span>
       </h1>
       <p class="lead rise d2">
-        <span lang="en">Linux only dims your laptop's own screen. Dimly controls the monitor's real backlight over the cable, keeps it in step with your laptop, and dims both through the day.</span>
-        <span lang="bn">লিনাক্সে সাধারণত শুধু ল্যাপটপের স্ক্রিনের আলো কমানো-বাড়ানো যায়। Dimly ক্যাবলের মাধ্যমেই বাইরের মনিটরের আসল ব্যাকলাইট নিয়ন্ত্রণ করে, ল্যাপটপের সাথে তাল মিলিয়ে রাখে, আর দিনের সময় বুঝে দুটোর আলোই কমিয়ে দেয়।</span>
+        <span lang="en">Linux only dims your laptop's own screen. Dimly controls the monitor's real backlight over the cable, keeps it in step with your laptop, dims both through the day, and warms every screen at night.</span>
+        <span lang="bn">লিনাক্সে সাধারণত শুধু ল্যাপটপের স্ক্রিনের আলো কমানো-বাড়ানো যায়। Dimly ক্যাবলের মাধ্যমেই বাইরের মনিটরের আসল ব্যাকলাইট নিয়ন্ত্রণ করে, ল্যাপটপের সাথে তাল মিলিয়ে রাখে, দিনের সময় বুঝে দুটোর আলোই কমিয়ে দেয়, আর রাতে সব স্ক্রিন উষ্ণ করে তোলে।</span>
       </p>
       <div class="actions rise d2">
         <a class="btn primary" data-download href="https://github.com/saikatnjm/dimly/releases/latest">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0l-5-5m5 5l5-5M5 21h14"/></svg>
           <span class="stack">
-            <span><span lang="en">Download for Ubuntu</span><span lang="bn">Ubuntu-র জন্য ডাউনলোড</span></span>
+            <span><span lang="en">Download for Ubuntu &amp; Mint</span><span lang="bn">Ubuntu ও Mint-এর জন্য ডাউনলোড</span></span>
             <span class="version" data-version></span>
           </span>
         </a>
@@ -344,14 +460,15 @@
         </a>
       </div>
       <div class="meta">
-        <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Ubuntu 22.04+</span>
-        <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>GNOME</span>
+        <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Ubuntu 22.04–26.04</span>
+        <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Linux Mint</span>
         <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span lang="en">MIT licence</span><span lang="bn">MIT লাইসেন্স</span></span>
       </div>
     </div>
 
     <div class="preview rise d1">
       <div class="desktop" role="img" aria-label="Dimly's menu in the GNOME top bar, dimming the screen">
+        <div class="warm-tint" aria-hidden="true"></div>
         <div class="wallpaper">
           <svg class="stars" viewBox="0 0 100 80" preserveAspectRatio="none" aria-hidden="true">
             <circle cx="14" cy="28" r=".5" fill="currentColor" opacity=".8"/><circle cx="31" cy="44" r=".35" fill="currentColor" opacity=".6"/>
@@ -380,6 +497,11 @@
             <input type="range" min="0" max="100" value="50" aria-label="Contrast" data-demo-contrast>
             <output data-demo-contrast-value>50</output>
           </div>
+          <div class="row">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>
+            <input type="range" min="0" max="100" value="0" aria-label="Warmth" data-demo-warmth>
+            <output data-demo-warmth-value>0</output>
+          </div>
           <div class="chips">
             <button type="button" data-level="10">Night</button>
             <button type="button" data-level="30">Evening</button>
@@ -391,8 +513,8 @@
         </div>
       </div>
       <p class="preview-hint">
-        <span lang="en">Try it: drag the slider or pick a preset.</span>
-        <span lang="bn">চেষ্টা করে দেখুন: স্লাইডার টানুন বা একটা প্রিসেট বেছে নিন।</span>
+        <span lang="en">Try it: drag the sliders or pick a preset.</span>
+        <span lang="bn">চেষ্টা করে দেখুন: স্লাইডারগুলো টানুন বা একটা প্রিসেট বেছে নিন।</span>
       </p>
     </div>
   </div>
@@ -423,8 +545,8 @@
       </div>
       <div class="card">
         <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 8h18M14 12h4M14 15h4"/></svg></div>
-        <h3><span lang="en">Right in the top bar</span><span lang="bn">টপ বার থেকেই</span></h3>
-        <p><span lang="en">Brightness, contrast and presets from the Dimly icon in the top bar, or <kbd>Super</kbd>+<kbd>F6</kbd> and <kbd>Super</kbd>+<kbd>F5</kbd>.</span><span lang="bn">উপরের বারে Dimly-র আইকন থেকেই ব্রাইটনেস, কনট্রাস্ট আর প্রিসেট। অথবা <kbd>Super</kbd>+<kbd>F6</kbd> আর <kbd>Super</kbd>+<kbd>F5</kbd> চাপুন।</span></p>
+        <h3><span lang="en">One click away</span><span lang="bn">এক ক্লিকেই হাতের কাছে</span></h3>
+        <p><span lang="en">Everything from Dimly's icon in the top bar, or Linux Mint's panel. Put it on the right, by the clock or on the left. Or press <kbd>Super</kbd>+<kbd>F6</kbd> and <kbd>Super</kbd>+<kbd>F5</kbd>.</span><span lang="bn">উপরের বারে, বা Linux Mint-এর প্যানেলে, Dimly-র আইকন থেকেই সব। আইকনটা ডানে, ঘড়ির পাশে বা বাঁয়ে রাখতে পারেন। অথবা <kbd>Super</kbd>+<kbd>F6</kbd> আর <kbd>Super</kbd>+<kbd>F5</kbd> চাপুন।</span></p>
       </div>
       <div class="card">
         <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2v6M15 2v6M6 8h12v3a6 6 0 01-12 0zM12 17v5"/></svg></div>
@@ -432,10 +554,24 @@
         <p><span lang="en">A newly connected monitor joins in automatically, at the current level.</span><span lang="bn">নতুন মনিটর লাগালে সেটাও নিজে থেকে বাকি স্ক্রিনগুলোর সমান উজ্জ্বলতায় চলে আসে।</span></p>
       </div>
       <div class="card">
-        <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></div>
-        <h3><span lang="en">Fix a stuck backlight</span><span lang="bn">আটকে যাওয়া ব্যাকলাইট ঠিক করুন</span></h3>
-        <p><span lang="en">Some monitors stop dimming. Factory reset clears it, and keeps your brightness and contrast.</span><span lang="bn">কোনো কোনো মনিটর একসময় আর ডিম হতে চায় না। ফ্যাক্টরি রিসেট দিলে ঠিক হয়ে যায়, আর আপনার ব্রাইটনেস ও কনট্রাস্ট আগের মতোই থাকে।</span></p>
+        <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 14.8V4a2 2 0 00-4 0v10.8a4 4 0 104 0z"/><path d="M12 11v6"/></svg></div>
+        <h3><span lang="en">Warmth for every screen</span><span lang="bn">সব স্ক্রিনে উষ্ণতা</span></h3>
+        <p><span lang="en">One slider for less blue light on every screen, laptop included, from sunset to sunrise or all the time.</span><span lang="bn">একটা স্লাইডারেই সব স্ক্রিনে, ল্যাপটপসহ, নীল আলো কমান। চলবে সূর্যাস্ত থেকে সূর্যোদয় পর্যন্ত, বা সারাক্ষণ।</span></p>
       </div>
+    </div>
+  </div>
+</section>
+
+<section id="why">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow"><span lang="en">How it works</span><span lang="bn">কীভাবে কাজ করে</span></p>
+      <h2><span lang="en">Why Linux can't dim your external monitor, and how Dimly can</span><span lang="bn">লিনাক্স কেন বাইরের মনিটরের আলো কমাতে পারে না, আর Dimly কীভাবে পারে</span></h2>
+    </div>
+    <div class="prose">
+      <p><span lang="en">On Ubuntu and Linux Mint, the brightness keys and the slider in the system menu only change a laptop's built-in screen. An external monitor has its own backlight, which you normally have to change with the small buttons on its edge.</span><span lang="bn">Ubuntu আর Linux Mint-এ ব্রাইটনেস বাটন আর সিস্টেম মেনুর স্লাইডার শুধু ল্যাপটপের নিজের স্ক্রিনের আলো বদলায়। বাইরের মনিটরের ব্যাকলাইট আলাদা, সেটা সাধারণত মনিটরের কোণার ছোট ছোট বাটন টিপে বদলাতে হয়।</span></p>
+      <p><span lang="en">Most monitors also accept these settings over the video cable, through a standard called DDC/CI. Dimly uses it, through the trusted <code>ddcutil</code> tool, to change your monitor's real backlight and contrast. It doesn't just darken the picture in software: the screen gives off less light, which is what your eyes notice.</span><span lang="bn">বেশিরভাগ মনিটর এই সেটিংস ভিডিও ক্যাবলের মাধ্যমেও নিতে পারে, DDC/CI নামের একটা স্ট্যান্ডার্ড দিয়ে। Dimly নির্ভরযোগ্য <code>ddcutil</code> টুল দিয়ে এটাই ব্যবহার করে মনিটরের আসল ব্যাকলাইট আর কনট্রাস্ট বদলায়। এটা শুধু সফটওয়্যারে ছবি কালো করে না: স্ক্রিন থেকেই কম আলো বের হয়, আর চোখ সেটাই টের পায়।</span></p>
+      <p><span lang="en">Because Dimly sees every screen, it keeps them at the same level. Press your laptop's brightness keys and every monitor follows, or let the schedule dim them in the evening. For colour, it uses the desktop's own night light, so the warmth matches on every screen too.</span><span lang="bn">Dimly সব স্ক্রিন একসাথে দেখে, তাই সবগুলোকে একই লেভেলে রাখে। ল্যাপটপের ব্রাইটনেস বাটন চাপলে সব মনিটরও সাথে সাথে বদলায়, অথবা সময়সূচি দিয়ে সন্ধ্যায় নিজে থেকেই আলো কমিয়ে দিন। রঙের জন্য এটা ডেস্কটপের নিজের নাইট লাইট ব্যবহার করে, তাই উষ্ণতাও সব স্ক্রিনে এক রকম থাকে।</span></p>
     </div>
   </div>
 </section>
@@ -458,16 +594,16 @@
     <div class="steps">
       <div class="step">
         <h3><span lang="en">Download and install</span><span lang="bn">ডাউনলোড ও ইনস্টল</span></h3>
-        <p><span lang="en">Get <a data-download href="https://github.com/saikatnjm/dimly/releases/latest"><code data-deb-name>dimly_0.3.0_all.deb</code></a>, then:</span><span lang="bn"><a data-download href="https://github.com/saikatnjm/dimly/releases/latest"><code data-deb-name>dimly_0.3.0_all.deb</code></a> ফাইলটা নামিয়ে নিন, তারপর:</span></p>
-        <div class="cmd"><code>sudo apt install ./<span data-deb-name>dimly_0.3.0_all.deb</span></code><button class="copy" type="button" aria-label="Copy command"></button></div>
+        <p><span lang="en">Get <a data-download href="https://github.com/saikatnjm/dimly/releases/latest"><code data-deb-name>dimly_0.4.0_all.deb</code></a>, then:</span><span lang="bn"><a data-download href="https://github.com/saikatnjm/dimly/releases/latest"><code data-deb-name>dimly_0.4.0_all.deb</code></a> ফাইলটা নামিয়ে নিন, তারপর:</span></p>
+        <div class="cmd"><code>sudo apt install ./<span data-deb-name>dimly_0.4.0_all.deb</span></code><button class="copy" type="button" aria-label="Copy command"></button></div>
       </div>
       <div class="step">
         <h3><span lang="en">Log out and back in</span><span lang="bn">লগ আউট করে আবার লগ ইন</span></h3>
-        <p><span lang="en">Once, so your account can reach monitors and the top-bar menu appears.</span><span lang="bn">একবারই, তাহলে আপনার অ্যাকাউন্ট মনিটরের সাথে যোগাযোগ করতে পারবে আর টপ বারের মেনুটা দেখা যাবে।</span></p>
+        <p><span lang="en">Once, so your account can reach monitors and GNOME finds the top-bar menu.</span><span lang="bn">একবারই, তাহলে আপনার অ্যাকাউন্ট মনিটরের সাথে যোগাযোগ করতে পারবে আর GNOME টপ বারের মেনুটা খুঁজে পাবে।</span></p>
       </div>
       <div class="step">
         <h3><span lang="en">Open Dimly</span><span lang="bn">Dimly খুলুন</span></h3>
-        <p><span lang="en">From the app menu. The first start adds the shortcuts and starts the background service.</span><span lang="bn">অ্যাপ মেনু থেকে। প্রথমবার খোলার সময় এটা নিজেই শর্টকাট বসিয়ে নেয় আর ব্যাকগ্রাউন্ড সার্ভিস চালু করে দেয়।</span></p>
+        <p><span lang="en">From the app menu. The first start puts Dimly in the top bar (or Mint's panel), adds the shortcuts and starts the background service.</span><span lang="bn">অ্যাপ মেনু থেকে। প্রথমবার খোলার সময় এটা নিজেই টপ বারে (বা Mint-এর প্যানেলে) আইকন বসায়, শর্টকাট যোগ করে আর ব্যাকগ্রাউন্ড সার্ভিস চালু করে দেয়।</span></p>
       </div>
     </div>
     <div class="two">
@@ -482,8 +618,8 @@
       </div>
     </div>
     <p class="note">
-      <span lang="en">Built for GNOME on Ubuntu 22.04 and later; the top-bar menu currently needs GNOME 42 (Ubuntu 22.04). To install from source instead, see the <a href="https://github.com/saikatnjm/dimly#from-source">README</a>.</span>
-      <span lang="bn">Ubuntu 22.04 বা তার পরের ভার্সনের GNOME ডেস্কটপের জন্য বানানো; টপ বারের মেনুটা আপাতত শুধু GNOME 42-এ (Ubuntu 22.04) চলে। সোর্স কোড থেকে ইনস্টল করতে চাইলে <a href="https://github.com/saikatnjm/dimly/blob/main/README.bn.md">README</a> দেখুন।</span>
+      <span lang="en">Built for GNOME 42 to 50 (Ubuntu 22.04 to 26.04) and Linux Mint's Cinnamon, where the menu lives in the panel. To install from source instead, see the <a href="https://github.com/saikatnjm/dimly#from-source">README</a>.</span>
+      <span lang="bn">GNOME 42 থেকে 50 (Ubuntu 22.04 থেকে 26.04) আর Linux Mint-এর Cinnamon-এর জন্য বানানো; Cinnamon-এ মেনুটা থাকে প্যানেলে। সোর্স কোড থেকে ইনস্টল করতে চাইলে <a href="https://github.com/saikatnjm/dimly/blob/main/README.bn.md">README</a> দেখুন।</span>
     </p>
   </div>
 </section>
@@ -495,6 +631,18 @@
       <h2><span lang="en">Questions</span><span lang="bn">যা জানতে চান</span></h2>
     </div>
     <div class="faq">
+      <details>
+        <summary><span lang="en">How do I change my external monitor's brightness on Ubuntu?</span><span lang="bn">Ubuntu-তে বাইরের মনিটরের ব্রাইটনেস কীভাবে বদলাব?</span></summary>
+        <p><span lang="en">Ubuntu's own brightness keys and slider only control a laptop's built-in screen. Install Dimly: it adjusts external monitors over the cable with DDC/CI, from the top bar, your keyboard or a schedule.</span><span lang="bn">Ubuntu-র নিজের ব্রাইটনেস বাটন আর স্লাইডার শুধু ল্যাপটপের স্ক্রিন নিয়ন্ত্রণ করে। Dimly ইনস্টল করুন: এটা ক্যাবলের মাধ্যমে DDC/CI দিয়ে বাইরের মনিটর নিয়ন্ত্রণ করে, টপ বার, কীবোর্ড বা সময়সূচি থেকে।</span></p>
+      </details>
+      <details>
+        <summary><span lang="en">What is DDC/CI?</span><span lang="bn">DDC/CI কী?</span></summary>
+        <p><span lang="en">A standard that lets a computer change a monitor's settings, such as brightness and contrast, over the video cable: HDMI, DisplayPort, DVI or VGA. Most monitors made in the last fifteen years support it.</span><span lang="bn">এমন একটা স্ট্যান্ডার্ড, যা দিয়ে কম্পিউটার ভিডিও ক্যাবলের (HDMI, DisplayPort, DVI বা VGA) মাধ্যমে মনিটরের সেটিংস, যেমন ব্রাইটনেস আর কনট্রাস্ট, বদলাতে পারে। গত পনেরো বছরে বানানো বেশিরভাগ মনিটরে এটা থাকে।</span></p>
+      </details>
+      <details>
+        <summary><span lang="en">How is Dimly different from Night Light or ddcutil?</span><span lang="bn">Night Light বা ddcutil-এর সাথে Dimly-র পার্থক্য কী?</span></summary>
+        <p><span lang="en">Night Light only changes colour, and <code>ddcutil</code> is a command-line tool. Dimly brings both together: it changes your monitors' real backlight through <code>ddcutil</code> and their warmth through Night Light, from one simple menu, and keeps every screen in step.</span><span lang="bn">Night Light শুধু রঙ বদলায়, আর <code>ddcutil</code> হলো কমান্ড-লাইন টুল। Dimly দুটোকে একসাথে আনে: <code>ddcutil</code> দিয়ে মনিটরের আসল ব্যাকলাইট আর Night Light দিয়ে উষ্ণতা বদলায়, একটা সহজ মেনু থেকে, আর সব স্ক্রিন একসাথে মিলিয়ে রাখে।</span></p>
+      </details>
       <details>
         <summary><span lang="en">Will it work with my monitor?</span><span lang="bn">আমার মনিটরে কি চলবে?</span></summary>
         <p><span lang="en">Most desktop monitors support DDC/CI, the standard Dimly uses. If yours has a DDC/CI option in its menu, make sure it's on.</span><span lang="bn">বেশিরভাগ ডেস্কটপ মনিটরেই DDC/CI থাকে, আর Dimly এটাই ব্যবহার করে। মনিটরের মেনুতে DDC/CI অপশন থাকলে চালু আছে কিনা দেখে নিন।</span></p>
@@ -510,6 +658,14 @@
       <details>
         <summary><span lang="en">Why does the monitor change a moment after the laptop?</span><span lang="bn">ল্যাপটপের একটু পরে মনিটর বদলায় কেন?</span></summary>
         <p><span lang="en">Monitors take about half a second for each change, so Dimly sends one at a time. That's normal.</span><span lang="bn">প্রতিটা পরিবর্তন নিতে মনিটরের প্রায় আধা সেকেন্ড লাগে, তাই Dimly একটা একটা করে পাঠায়। এটা স্বাভাবিক।</span></p>
+      </details>
+      <details>
+        <summary><span lang="en">Does it work on Linux Mint?</span><span lang="bn">Linux Mint-এ কি চলে?</span></summary>
+        <p><span lang="en">Yes. Install the same <code>.deb</code>; Dimly's menu appears in Mint's panel, with the same sliders and presets. Following the laptop's brightness keys isn't available on Mint yet: bind <code>dimly --up</code> and <code>dimly --down</code> to keys in Mint's Keyboard settings instead.</span><span lang="bn">হ্যাঁ। একই <code>.deb</code> ফাইল ইনস্টল করুন; Dimly-র মেনু Mint-এর প্যানেলে চলে আসবে, একই স্লাইডার আর প্রিসেটসহ। Mint-এ ল্যাপটপের ব্রাইটনেস বাটনের সাথে সিঙ্ক এখনো নেই: তার বদলে Mint-এর Keyboard সেটিংস থেকে <code>dimly --up</code> আর <code>dimly --down</code> কোনো কী-তে বসিয়ে নিন।</span></p>
+      </details>
+      <details>
+        <summary><span lang="en">My laptop has no external monitor. Is Dimly any use?</span><span lang="bn">আমার ল্যাপটপে বাইরের মনিটর নেই। Dimly কি কাজে লাগবে?</span></summary>
+        <p><span lang="en">The warmth slider works on any screen, laptop included. Brightness and contrast are for external monitors; a laptop's own screen already follows its brightness keys.</span><span lang="bn">উষ্ণতার স্লাইডার যেকোনো স্ক্রিনে চলে, ল্যাপটপেও। ব্রাইটনেস আর কনট্রাস্ট বাইরের মনিটরের জন্য; ল্যাপটপের নিজের স্ক্রিন তো তার ব্রাইটনেস বাটনেই চলে।</span></p>
       </details>
     </div>
   </div>
@@ -599,6 +755,13 @@
     }
     slider.addEventListener("input", function () { show(slider.value); });
     chips.forEach(function (c) { c.addEventListener("click", function () { show(c.dataset.level); }); });
+    var tint = document.querySelector(".warm-tint");
+    var warmth = document.querySelector("[data-demo-warmth]");
+    var warmthValue = document.querySelector("[data-demo-warmth-value]");
+    warmth.addEventListener("input", function () {
+      warmthValue.textContent = warmth.value;
+      tint.style.setProperty("--warm", (0.45 * warmth.value / 100).toFixed(2));
+    });
     var contrast = document.querySelector("[data-demo-contrast]");
     var contrastValue = document.querySelector("[data-demo-contrast-value]");
     contrast.addEventListener("input", function () {

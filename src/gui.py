@@ -14,6 +14,7 @@ import about  # noqa: E402
 import ddc  # noqa: E402
 import integration  # noqa: E402
 import laptop  # noqa: E402
+import warmth  # noqa: E402
 
 # After you move a slider, outside updates wait this long, so a change that's
 # still on its way back from the laptop doesn't pull the slider from under you.
@@ -182,6 +183,71 @@ class ScheduleGroup(Adw.PreferencesGroup):
         ddc.update_config(schedule=self.config["schedule"])
 
 
+class WarmthGroup(Adw.PreferencesGroup):
+    """The desktop's night light, for every screen. The desktop keeps the setting,
+    so this also follows changes made in its own Settings."""
+
+    WHEN_LABELS = ["Night Light's own hours", "All the time"]  # for warmth.WHEN, in order
+
+    def __init__(self, night_light):
+        super().__init__(title="Warmth", description="Less blue light, on every screen. 0 turns it off.")
+        self.night_light = night_light
+        self.preview_timer = 0
+        self.catch_up = 0
+        self.last_local_change = 0.0
+        self.scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1)
+        self.scale.set_round_digits(0)
+        self.scale.set_draw_value(True)
+        self.scale.set_value_pos(Gtk.PositionType.RIGHT)
+        self.scale.set_size_request(300, -1)
+        self.scale.set_valign(Gtk.Align.CENTER)
+        self.scale_handler = self.scale.connect("value-changed", self._changed)
+        row = Adw.ActionRow(title="Warmth")
+        row.add_suffix(self.scale)
+        self.add(row)
+        self.when = Adw.ComboRow(title="When", model=Gtk.StringList.new(self.WHEN_LABELS))
+        self.when_handler = self.when.connect("notify::selected", self._when_changed)
+        self.add(self.when)
+        self.show_settings()
+
+    def show_settings(self):
+        wait = LOCAL_CHANGE_GRACE - (time.monotonic() - self.last_local_change)
+        if wait > 0:
+            # Probably your own drag coming back; look again once you've let go.
+            if not self.catch_up:
+                self.catch_up = GLib.timeout_add(int(wait * 1000) + 50, self._catch_up)
+            return
+        level = warmth.get_warmth(self.night_light)
+        with self.scale.handler_block(self.scale_handler):
+            self.scale.set_value(level)
+        with self.when.handler_block(self.when_handler):
+            self.when.set_selected(warmth.WHEN.index(warmth.get_when(self.night_light)))
+        self.when.set_sensitive(level > 0)
+
+    def _catch_up(self):
+        self.catch_up = 0
+        self.show_settings()
+        return GLib.SOURCE_REMOVE
+
+    def _changed(self, scale):
+        self.last_local_change = time.monotonic()
+        level = int(scale.get_value())
+        warmth.set_warmth(self.night_light, level)
+        self.when.set_sensitive(level > 0)
+        # Show the warmth even if the night light isn't due yet, once you pause.
+        if self.preview_timer:
+            GLib.source_remove(self.preview_timer)
+        self.preview_timer = GLib.timeout_add(300, self._preview) if level > 0 else 0
+
+    def _preview(self):
+        self.preview_timer = 0
+        warmth.preview()
+        return GLib.SOURCE_REMOVE
+
+    def _when_changed(self, row, _):
+        warmth.set_when(self.night_light, warmth.WHEN[row.get_selected()])
+
+
 class LaptopGroup(Adw.PreferencesGroup):
     def __init__(self):
         super().__init__(title="Laptop screen")
@@ -197,24 +263,38 @@ class LaptopGroup(Adw.PreferencesGroup):
 
 
 class TopBarGroup(Adw.PreferencesGroup):
+
     def __init__(self):
-        super().__init__(title="Top bar")
+        bar = integration.panel_name()
+        super().__init__(title=bar.capitalize())
         switch = Gtk.Switch(active=integration.top_bar_enabled(), valign=Gtk.Align.CENTER)
         switch.connect("notify::active", self._toggled)
-        self.row = Adw.ActionRow(title="Show Dimly in the top bar", activatable_widget=switch)
+        self.row = Adw.ActionRow(title=f"Show Dimly in the {bar}", activatable_widget=switch)
         self.row.add_suffix(switch)
         self.add(self.row)
-        self._update_subtitle(switch.get_active())
+
+        # Labels for ddc.TOP_BAR_POSITIONS, in the same order. GNOME's clock is in the middle.
+        labels = ["Right", "Centre" if integration.on_cinnamon() else "Next to the clock", "Left"]
+        self.position = Adw.ComboRow(title="Position", model=Gtk.StringList.new(labels))
+        self.position.set_selected(ddc.TOP_BAR_POSITIONS.index(ddc.load_config()["top_bar_position"]))
+        self.position.connect("notify::selected", self._moved)
+        self.add(self.position)
+        self._update(switch.get_active())
 
     def _toggled(self, switch, _):
         integration.set_top_bar(switch.get_active())
-        self._update_subtitle(switch.get_active())
+        self._update(switch.get_active())
+        # GNOME applies the switch a moment later; show its answer once it has.
+        GLib.timeout_add(1500, lambda: self._update(switch.get_active()) or GLib.SOURCE_REMOVE)
 
-    def _update_subtitle(self, enabled):
-        if enabled and not integration.gnome_has_loaded_extension():
-            self.row.set_subtitle("Log out and back in once to see it")
-        else:
-            self.row.set_subtitle("Brightness, contrast and presets, one click away")
+    def _moved(self, row, _):
+        # The menu moves straight away.
+        ddc.update_config(top_bar_position=ddc.TOP_BAR_POSITIONS[row.get_selected()])
+        integration.apply_position()
+
+    def _update(self, enabled):
+        self.row.set_subtitle(integration.top_bar_status())
+        self.position.set_sensitive(enabled)
 
 
 class ShortcutsGroup(Adw.PreferencesGroup):
@@ -258,6 +338,10 @@ class DimlyWindow(Adw.ApplicationWindow):
         ddc.STATE_DIR.mkdir(parents=True, exist_ok=True)
         self.state_monitor = Gio.File.new_for_path(str(ddc.STATE_FILE)).monitor_file(Gio.FileMonitorFlags.NONE, None)
         self.state_monitor.connect("changed", self._state_changed)
+        self.warmth_group = None
+        self.night_light = warmth.settings()
+        if self.night_light:
+            self.night_light.connect("changed", lambda *_: self.warmth_group and self.warmth_group.show_settings())
         self.load()
 
     def _state_changed(self, _monitor, _file, _other, event):
@@ -306,11 +390,14 @@ class DimlyWindow(Adw.ApplicationWindow):
                     bus, lambda code, value, n=name: GLib.idle_add(self._write_failed, n, code, value))
             self.monitor_groups[bus] = MonitorGroup(self.writers[bus], name, values)
             page.add(self.monitor_groups[bus])
+        if self.night_light:
+            self.warmth_group = WarmthGroup(self.night_light)
+            page.add(self.warmth_group)
         if self.has_laptop_screen:
             page.add(LaptopGroup())
         page.add(PresetsGroup(self._presets_changed))
         page.add(ScheduleGroup())
-        if integration.extension_installed():
+        if integration.top_bar_available():
             page.add(TopBarGroup())
         page.add(ShortcutsGroup())
         page.add(self._footer())

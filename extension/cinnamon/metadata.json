@@ -1,0 +1,8 @@
+{
+  "uuid": "dimly@saikatnjm.github.io",
+  "name": "Dimly",
+  "description": "Brightness, contrast, warmth and presets for your external monitors, from the panel. Needs the Dimly app.",
+  "max-instances": 1,
+  "url": "https://github.com/saikatnjm/dimly",
+  "version": "1"
+}

@@ -25,6 +25,8 @@ BRIGHTNESS = 0x10
 CONTRAST = 0x12
 FEATURE_NAMES = {BRIGHTNESS: "brightness", CONTRAST: "contrast"}
 PRESET_NAMES = ["Night", "Evening", "Day", "Max"]
+# Where the top-bar menu sits: in the right, centre (by the clock) or left part of the bar.
+TOP_BAR_POSITIONS = ["right", "center", "left"]
 
 CACHE_DIR = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "dimly"
 CONFIG_FILE = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "dimly" / "config.json"
@@ -41,6 +43,7 @@ DEFAULT_CONFIG = {
     "presets": {"Night": 10, "Evening": 30, "Day": 60, "Max": 100},
     "schedule_enabled": True,
     "schedule": [["08:00", "Day"], ["18:00", "Evening"], ["22:00", "Night"]],
+    "top_bar_position": "right",
 }
 
 
@@ -370,6 +373,8 @@ def load_config():
             config[key] = copy.deepcopy(default)
     config["presets"] = {name: value for name, value in config["presets"].items()
                          if name in PRESET_NAMES and type(value) is int}
+    if config["top_bar_position"] not in TOP_BAR_POSITIONS:
+        config["top_bar_position"] = DEFAULT_CONFIG["top_bar_position"]
     config["schedule"] = [entry for entry in config["schedule"]
                           if isinstance(entry, list) and len(entry) == 2 and all(isinstance(x, str) for x in entry)]
     return config

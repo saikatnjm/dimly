@@ -18,10 +18,20 @@ mkdir -p "$stage/DEBIAN" "$stage/usr/bin" "$stage/usr/share/dimly" "$stage/usr/s
 
 install -m 755 "$root/src/dimly.py" "$stage/usr/share/dimly/"
 find "$root/src" -maxdepth 1 -name "*.py" ! -name dimly.py -exec install -m 644 {} "$stage/usr/share/dimly/" \;
-extension="$stage/usr/share/gnome-shell/extensions/dimly@saikatnjm.github.io"
-mkdir -p "$extension/icons"
-install -m 644 "$root"/extension/*.js "$root"/extension/*.json "$root"/extension/*.css "$extension/"
-install -m 644 "$root"/extension/icons/*.svg "$extension/icons/"
+# Both versions of the top-bar menu. postinst (below) links the one the installed
+# GNOME needs into GNOME's own extensions folder.
+for variant in gnome42 gnome45; do
+    extension="$stage/usr/share/dimly/extension/$variant"
+    mkdir -p "$extension/icons"
+    install -m 644 "$root/extension/$variant"/*.js "$root/extension/$variant"/*.json \
+            "$root/extension/common/stylesheet.css" "$extension/"
+    install -m 644 "$root"/extension/common/icons/*.svg "$extension/icons/"
+done
+# The Cinnamon (Linux Mint) panel applet: Cinnamon finds it here by itself.
+applet="$stage/usr/share/cinnamon/applets/dimly@saikatnjm.github.io"
+mkdir -p "$applet/icons"
+install -m 644 "$root"/extension/cinnamon/* "$root/extension/common/stylesheet.css" "$applet/"
+install -m 644 "$root"/extension/common/icons/*.svg "$applet/icons/"
 ln -s ../share/dimly/dimly.py "$stage/usr/bin/dimly"
 
 sed "s|@BINDIR@|/usr/bin|" "$root/data/$app_id.desktop.in" > "$stage/usr/share/applications/$app_id.desktop"
@@ -47,7 +57,7 @@ Section: utils
 Priority: optional
 Architecture: all
 Depends: python3 (>= 3.10), python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1, ddcutil
-Recommends: gnome-shell
+Recommends: gnome-shell | cinnamon
 Maintainer: Saikat Roy <njmsaikat@gmail.com>
 Homepage: https://github.com/saikatnjm/dimly
 Description: Easy-on-the-eyes brightness for external monitors
@@ -57,18 +67,55 @@ Description: Easy-on-the-eyes brightness for external monitors
  monitors automatically.
 EOF
 
+# GNOME loads the top-bar menu from this link. postinst points it at the version
+# the installed GNOME needs, and runs again whenever the gnome-shell package
+# changes (the trigger below), so upgrading Ubuntu keeps the menu working.
 cat > "$stage/DEBIAN/postinst" <<'EOF'
 #!/bin/sh
 set -e
-if [ "$1" = configure ]; then
-    modprobe i2c-dev 2>/dev/null || true
-    if command -v udevadm >/dev/null; then
-        udevadm control --reload-rules || true
-        udevadm trigger --subsystem-match=i2c-dev || true
+link=/usr/share/gnome-shell/extensions/dimly@saikatnjm.github.io
+
+link_top_bar_menu() {
+    major="$(dpkg-query -W -f='${Version}' gnome-shell 2>/dev/null | sed 's/^[0-9]*://; s/[^0-9].*//')"
+    if [ -z "$major" ]; then
+        rm -f "$link"  # no GNOME Shell, e.g. Cinnamon: no top-bar menu
+        return
     fi
-fi
+    if [ "$major" -ge 45 ]; then variant=gnome45; else variant=gnome42; fi
+    [ -d "$link" ] && [ ! -L "$link" ] && rm -rf "$link"  # left by Dimly 0.3.0
+    mkdir -p "$(dirname "$link")"
+    ln -sfn "/usr/share/dimly/extension/$variant" "$link"
+}
+
+case "$1" in
+    configure)
+        link_top_bar_menu
+        modprobe i2c-dev 2>/dev/null || true
+        if command -v udevadm >/dev/null; then
+            udevadm control --reload-rules || true
+            udevadm trigger --subsystem-match=i2c-dev || true
+        fi
+        ;;
+    triggered)
+        link_top_bar_menu
+        ;;
+esac
 EOF
 chmod 755 "$stage/DEBIAN/postinst"
+
+cat > "$stage/DEBIAN/postrm" <<'EOF'
+#!/bin/sh
+set -e
+link=/usr/share/gnome-shell/extensions/dimly@saikatnjm.github.io
+if [ "$1" = remove ] || [ "$1" = purge ]; then
+    [ -L "$link" ] && rm -f "$link"
+fi
+exit 0
+EOF
+chmod 755 "$stage/DEBIAN/postrm"
+
+echo "interest-noawait /usr/bin/gnome-shell" > "$stage/DEBIAN/triggers"
+chmod 644 "$stage/DEBIAN/triggers"
 
 mkdir -p "$root/dist"
 dpkg-deb --root-owner-group --build "$stage" "$root/dist/dimly_${version}_all.deb"

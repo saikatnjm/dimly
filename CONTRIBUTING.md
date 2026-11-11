@@ -40,7 +40,7 @@ remove that first so the two don't mix.
 | `src/dimly.py` | The `dimly` command and its options |
 | `src/laptop.py` | The laptop screen's brightness, through GNOME |
 | `src/integration.py` | Shortcuts, the top-bar menu switch and the background services |
-| `extension/` | The top-bar menu (GNOME Shell extension) |
+| `extension/` | The top-bar menu (GNOME Shell extension). Edit `gnome42/extension.js`, then run `extension/make-gnome45.py` to update the GNOME 45+ version |
 | `data/` | Launcher, app-store listing, icon, systemd units, udev rule |
 | `packaging/build-deb.sh` | Builds the `.deb` |
 
@@ -49,7 +49,7 @@ remove that first so the two don't mix.
 ```bash
 python3 -m unittest discover -s tests -v
 python3 -m pyflakes src tests
-node --check extension/extension.js
+node --check extension/gnome42/extension.js
 ```
 
 The same checks run automatically on every pull request.
