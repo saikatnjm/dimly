@@ -26,5 +26,14 @@ class WebsiteTest(unittest.TestCase):
         self.assertEqual({json.loads(block)["@type"] for block in blocks}, {"SoftwareApplication", "FAQPage"})
 
 
+    def test_download_links_fetch_the_file_itself(self):
+        # Not the releases page: that makes you hunt for the file. CI uploads this name.
+        links = re.findall(r"<a [^>]*data-download[^>]*>", PAGE)
+        self.assertEqual(len(links), 3)
+        for link in links:
+            self.assertIn('href="https://github.com/saikatnjm/dimly/releases/latest/download/dimly_latest_all.deb"', link)
+        self.assertIn("dimly_latest_all.deb", (DOCS.parent / ".github" / "workflows" / "ci.yml").read_text())
+
+
 if __name__ == "__main__":
     unittest.main()

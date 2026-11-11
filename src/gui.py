@@ -1,4 +1,4 @@
-"""The Dimly window: sliders and presets per monitor, laptop sync, the schedule, and the shortcuts."""
+"""The Dimly window: sliders and presets per monitor, warmth, laptop sync, the schedule, and the shortcuts."""
 
 import subprocess
 import threading
@@ -35,6 +35,8 @@ class MonitorGroup(Adw.PreferencesGroup):
             self.add(self._preset_row())
         if values.get(ddc.CONTRAST):
             self._slider_row("Contrast", ddc.CONTRAST, *values[ddc.CONTRAST])
+        if values.get(ddc.RED_GAIN) and values.get(ddc.BLUE_GAIN):
+            self.add(self._colour_row())
         self.add(self._reset_row(name))
 
     def _slider_row(self, title, code, current, maximum):
@@ -56,8 +58,22 @@ class MonitorGroup(Adw.PreferencesGroup):
         self.last_local_change = time.monotonic()
         value = int(scale.get_value())
         self.writer.request(code, value)
-        if code == ddc.BRIGHTNESS and ddc.load_config()["sync_laptop"]:
-            laptop.set_brightness(round(100 * value / maximum), wait=False)
+        config = ddc.load_config()
+        if code == ddc.BRIGHTNESS and config["sync_laptop"]:
+            laptop.set_brightness(ddc.laptop_level(round(100 * value / maximum)), wait=False)
+        if config["sync_monitors"]:
+            self.get_root().sync_monitors(self, code, ddc.to_percent(value, maximum))
+
+    def follow(self, code, percent):
+        """Take another monitor's level, in percent, on this monitor's own range."""
+        scale = self.scales.get(code)
+        if scale is None:
+            return
+        value = ddc.from_percent(percent, int(scale.get_adjustment().get_upper()))
+        self.last_local_change = time.monotonic()
+        with scale.handler_block(self.handlers[code]):  # so it doesn't pass it on again
+            scale.set_value(value)
+        self.writer.request(code, value)
 
     def show_recorded(self, state):
         """Move the sliders to levels set outside the window, without sending them back out."""
@@ -84,7 +100,7 @@ class MonitorGroup(Adw.PreferencesGroup):
                           margin_start=12, margin_end=12)
         for name in ddc.PRESET_NAMES:
             button = Gtk.Button(label=name)
-            # Read the level on click, so edits in Preset levels apply straight away.
+            # Read the preset on click, so edits in Presets apply straight away.
             button.connect("clicked", lambda _, n=name: self._apply_preset(n))
             buttons.append(button)
             self.preset_buttons[name] = button
@@ -92,44 +108,123 @@ class MonitorGroup(Adw.PreferencesGroup):
         return Adw.PreferencesRow(activatable=False, child=buttons)
 
     def _apply_preset(self, name):
-        # Presets are percentages; the slider runs over the monitor's own range.
-        scale = self.scales[ddc.BRIGHTNESS]
-        scale.set_value(ddc.from_percent(ddc.presets()[name], scale.get_adjustment().get_upper()))
+        # Moving the sliders sends the levels. Presets are percentages; each
+        # slider runs over the monitor's own range.
+        preset = ddc.presets()[name]
+        for code, key in ((ddc.BRIGHTNESS, "brightness"), (ddc.CONTRAST, "contrast")):
+            scale = self.scales.get(code)
+            if scale and preset[key] is not None:
+                scale.set_value(ddc.from_percent(preset[key], scale.get_adjustment().get_upper()))
+        if preset["warmth"] is not None:
+            self.get_root().set_warmth(preset["warmth"])
 
     def update_preset_tooltips(self):
-        for name, level in ddc.presets().items():
+        for name, preset in ddc.presets().items():
             if name in self.preset_buttons:
-                self.preset_buttons[name].set_tooltip_text(f"Brightness {level}")
+                self.preset_buttons[name].set_tooltip_text(ddc.describe(preset))
+
+    def _colour_row(self):
+        # For matching monitors of different makes. The base is read, and the
+        # monitor put in its user colour mode, only once the slider is first used.
+        self.colour_base = ddc.saved_colour_base(self.writer.bus)
+        self.colour_balance = self.colour_base["balance"] if self.colour_base else 0
+        self.colour_loading = False
+        self.colour_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL,
+                                                     -ddc.COLOUR_RANGE, ddc.COLOUR_RANGE, 1)
+        self.colour_scale.set_value(self.colour_balance if type(self.colour_balance) is int else 0)
+        self.colour_scale.set_round_digits(0)
+        self.colour_scale.set_has_origin(False)  # no fill: it runs both ways from the middle
+        self.colour_scale.add_mark(0, Gtk.PositionType.BOTTOM, None)
+        self.colour_scale.set_size_request(260, -1)
+        self.colour_scale.set_valign(Gtk.Align.CENTER)
+        self.colour_handler = self.colour_scale.connect("value-changed", self._colour_changed)
+        reset = Gtk.Button(icon_name="edit-undo-symbolic", valign=Gtk.Align.CENTER, css_classes=["flat"],
+                           tooltip_text="Back to the monitor's own colour")
+        reset.connect("clicked", self._colour_reset)
+        row = Adw.ActionRow(title="Colour", subtitle="Cooler or warmer")
+        row.add_suffix(self.colour_scale)
+        row.add_suffix(reset)
+        return row
+
+    def _colour_changed(self, scale):
+        self.colour_balance = int(scale.get_value())
+        if self.colour_base:
+            self._send_colour()
+        elif not self.colour_loading:
+            self.colour_loading = True
+            bus = self.writer.bus
+            threading.Thread(target=lambda: GLib.idle_add(self._colour_loaded, ddc.colour_base(bus)),
+                             daemon=True).start()
+
+    def _colour_loaded(self, base):
+        self.colour_loading = False
+        self.colour_base = base
+        if base:
+            self._send_colour()  # whatever the slider shows by now
+        return GLib.SOURCE_REMOVE
+
+    def _send_colour(self):
+        red, blue = ddc.colour_gains(self.colour_base, self.colour_balance)
+        self.writer.request(ddc.RED_GAIN, red)
+        self.writer.request(ddc.BLUE_GAIN, blue)
+        ddc.save_colour_balance(self.writer.bus, self.colour_balance)
+
+    def _colour_reset(self, _button):
+        with self.colour_scale.handler_block(self.colour_handler):
+            self.colour_scale.set_value(0)
+        self.colour_balance = 0
+        if self.colour_base:
+            self._send_colour()  # the base itself
 
     def _reset_row(self, name):
         button = Gtk.Button(label="Reset…", valign=Gtk.Align.CENTER)
         button.connect("clicked", lambda _: self.get_root().confirm_reset(self.writer.bus, name))
         row = Adw.ActionRow(title="Factory reset",
-                            subtitle="Fixes brightness not dimming the screen. Also resets colours and sharpness.")
+                            subtitle="Fixes brightness not dimming the screen. Keeps your levels and colour.")
         row.add_suffix(button)
         return row
 
 
 class PresetsGroup(Adw.PreferencesGroup):
-    """Edits what each preset means. The buttons, schedule and shortcuts read it from the config file."""
+    """Edits what each preset sets. The buttons, schedule and shortcuts read it from the config file."""
 
-    def __init__(self, on_change):
-        super().__init__(title="Preset levels",
-                         description="The brightness each preset sets, from 0 to 100. "
-                                     "The buttons and the schedule use these.")
+    def __init__(self, on_change, with_warmth):
+        super().__init__(title="Presets",
+                         description="What each preset sets, from 0 to 100. "
+                                     "The buttons, the menu and the schedule use these.")
         self.on_change = on_change
-        for name, level in ddc.presets().items():
-            spin = Gtk.SpinButton.new_with_range(0, 100, 5)
-            spin.set_value(level)
-            spin.set_numeric(True)
-            spin.set_valign(Gtk.Align.CENTER)
-            spin.connect("value-changed", self._changed, name)
-            row = Adw.ActionRow(title=name)
-            row.add_suffix(spin)
+        settings = ddc.PRESET_SETTINGS if with_warmth else ddc.PRESET_SETTINGS[:2]
+        for name, preset in ddc.presets().items():
+            row = Adw.ExpanderRow(title=name, subtitle=ddc.describe(preset))
+            for key in settings:
+                # Below 0 means "Keep": the preset leaves this setting as it is.
+                lowest = 0 if key == "brightness" else -5
+                spin = Gtk.SpinButton.new_with_range(lowest, 100, 5)
+                spin.set_numeric(False)  # so it can show "Keep"
+                spin.connect("output", self._show_keep)
+                spin.set_value(lowest if preset[key] is None else preset[key])
+                spin.set_valign(Gtk.Align.CENTER)
+                spin.connect("value-changed", self._changed, name, key, row)
+                setting = Adw.ActionRow(title=key.capitalize())
+                if key != "brightness":
+                    setting.set_subtitle("Below 0 keeps it as it is")
+                setting.add_suffix(spin)
+                row.add_row(setting)
             self.add(row)
 
-    def _changed(self, spin, name):
-        ddc.update_config(presets={**ddc.presets(), name: spin.get_value_as_int()})
+    @staticmethod
+    def _show_keep(spin):
+        if spin.get_value() >= 0:
+            return False
+        spin.set_text("Keep")
+        return True
+
+    def _changed(self, spin, name, key, row):
+        value = spin.get_value_as_int()
+        presets = ddc.presets()
+        presets[name][key] = value if value >= 0 else None
+        ddc.update_config(presets=presets)
+        row.set_subtitle(ddc.describe(presets[name]))
         self.on_change()
 
 
@@ -145,7 +240,7 @@ class ScheduleGroup(Adw.PreferencesGroup):
 
         switch = Gtk.Switch(active=self.config["schedule_enabled"], valign=Gtk.Align.CENTER)
         switch.connect("notify::active", self._toggled)
-        row = Adw.ActionRow(title="Change brightness by time of day", activatable_widget=switch)
+        row = Adw.ActionRow(title="Switch presets by time of day", activatable_widget=switch)
         row.add_suffix(switch)
         self.add(row)
 
@@ -184,8 +279,8 @@ class ScheduleGroup(Adw.PreferencesGroup):
 
 
 class WarmthGroup(Adw.PreferencesGroup):
-    """The desktop's night light, for every screen. The desktop keeps the setting,
-    so this also follows changes made in its own Settings."""
+    """Warmth for every screen: the desktop's night light where there is one, so
+    this also follows changes made in its own Settings; otherwise Dimly's own tint."""
 
     WHEN_LABELS = ["Night Light's own hours", "All the time"]  # for warmth.WHEN, in order
 
@@ -205,9 +300,11 @@ class WarmthGroup(Adw.PreferencesGroup):
         row = Adw.ActionRow(title="Warmth")
         row.add_suffix(self.scale)
         self.add(row)
-        self.when = Adw.ComboRow(title="When", model=Gtk.StringList.new(self.WHEN_LABELS))
-        self.when_handler = self.when.connect("notify::selected", self._when_changed)
-        self.add(self.when)
+        self.when = None
+        if night_light:  # Dimly's own tint is simply on or off
+            self.when = Adw.ComboRow(title="When", model=Gtk.StringList.new(self.WHEN_LABELS))
+            self.when_handler = self.when.connect("notify::selected", self._when_changed)
+            self.add(self.when)
         self.show_settings()
 
     def show_settings(self):
@@ -217,12 +314,13 @@ class WarmthGroup(Adw.PreferencesGroup):
             if not self.catch_up:
                 self.catch_up = GLib.timeout_add(int(wait * 1000) + 50, self._catch_up)
             return
-        level = warmth.get_warmth(self.night_light)
+        level = warmth.get_level() or 0
         with self.scale.handler_block(self.scale_handler):
             self.scale.set_value(level)
-        with self.when.handler_block(self.when_handler):
-            self.when.set_selected(warmth.WHEN.index(warmth.get_when(self.night_light)))
-        self.when.set_sensitive(level > 0)
+        if self.when:
+            with self.when.handler_block(self.when_handler):
+                self.when.set_selected(warmth.WHEN.index(warmth.get_when(self.night_light)))
+            self.when.set_sensitive(level > 0)
 
     def _catch_up(self):
         self.catch_up = 0
@@ -232,7 +330,9 @@ class WarmthGroup(Adw.PreferencesGroup):
     def _changed(self, scale):
         self.last_local_change = time.monotonic()
         level = int(scale.get_value())
-        warmth.set_warmth(self.night_light, level)
+        warmth.set_level(level)
+        if not self.when:
+            return
         self.when.set_sensitive(level > 0)
         # Show the warmth even if the night light isn't due yet, once you pause.
         if self.preview_timer:
@@ -248,18 +348,55 @@ class WarmthGroup(Adw.PreferencesGroup):
         warmth.set_when(self.night_light, warmth.WHEN[row.get_selected()])
 
 
-class LaptopGroup(Adw.PreferencesGroup):
-    def __init__(self):
-        super().__init__(title="Laptop screen")
-        switch = Gtk.Switch(active=ddc.load_config()["sync_laptop"], valign=Gtk.Align.CENTER)
+class SyncGroup(Adw.PreferencesGroup):
+    """Which screens move together: several monitors, and the laptop screen."""
+
+    def __init__(self, several_monitors, has_laptop_screen):
+        super().__init__(title="Sync")
+        config = ddc.load_config()
+        if several_monitors:
+            monitors = Gtk.Switch(active=config["sync_monitors"], valign=Gtk.Align.CENTER)
+            monitors.connect("notify::active", lambda switch, _: ddc.update_config(sync_monitors=switch.get_active()))
+            row = Adw.ActionRow(title="Keep monitors in sync", activatable_widget=monitors,
+                                subtitle="Moving one monitor's brightness or contrast moves the others too")
+            row.add_suffix(monitors)
+            self.add(row)
+        if has_laptop_screen:
+            self._laptop_rows(config)
+
+    def _laptop_rows(self, config):
+        switch = Gtk.Switch(active=config["sync_laptop"], valign=Gtk.Align.CENTER)
         switch.connect("notify::active", self._toggled)
-        row = Adw.ActionRow(title="Keep in sync with the monitor", activatable_widget=switch,
-                            subtitle="Same brightness on both; the laptop's brightness keys change both too")
+        row = Adw.ActionRow(title="Keep the laptop screen in sync", activatable_widget=switch,
+                            subtitle="Same brightness as the monitors; its keys change them too")
         row.add_suffix(switch)
         self.add(row)
 
+        # Screens of different makes look different at the same level.
+        offset = Gtk.SpinButton.new_with_range(-50, 50, 5)
+        offset.set_value(config["laptop_offset"])
+        offset.set_valign(Gtk.Align.CENTER)
+        offset.connect("value-changed", self._offset_changed)
+        self.offset_row = Adw.ActionRow(title="Laptop brighter by", sensitive=config["sync_laptop"],
+                                        subtitle="For screens that look different at the same level. "
+                                                 "Below 0 keeps the laptop dimmer.")
+        self.offset_row.add_suffix(offset)
+        self.add(self.offset_row)
+
     def _toggled(self, switch, _):
         ddc.update_config(sync_laptop=switch.get_active())
+        self.offset_row.set_sensitive(switch.get_active())
+
+    def _offset_changed(self, spin):
+        ddc.update_config(laptop_offset=spin.get_value_as_int())
+        # Show the new offset straight away, from the monitors' current level.
+        state = ddc.load_state()
+        for bus in state.get("buses") or []:
+            value = state.get("brightness", {}).get(str(bus))
+            if value is not None:
+                percent = ddc.to_percent(value, ddc.recorded_maximum(state, bus, ddc.BRIGHTNESS))
+                laptop.set_brightness(ddc.laptop_level(percent), wait=False)
+                return
 
 
 class TopBarGroup(Adw.PreferencesGroup):
@@ -350,6 +487,20 @@ class DimlyWindow(Adw.ApplicationWindow):
         state = ddc.load_state()
         for group in self.monitor_groups.values():
             group.show_recorded(state)
+        if self.warmth_group and not self.night_light:  # Dimly's own tint is kept in the state
+            self.warmth_group.show_settings()
+
+    def sync_monitors(self, source, code, percent):
+        """Bring every other monitor to the level just set on one, in percent."""
+        for group in self.monitor_groups.values():
+            if group is not source:
+                group.follow(code, percent)
+
+    def set_warmth(self, level):
+        """Set the warmth from a preset, and show it."""
+        warmth.set_level(level, now=True)
+        if self.warmth_group:
+            self.warmth_group.show_settings()
 
     def _presets_changed(self):
         for group in self.monitor_groups.values():
@@ -366,12 +517,13 @@ class DimlyWindow(Adw.ApplicationWindow):
             GLib.idle_add(self._show, [], problem)
             return
         try:
-            found = [(bus, name, {code: ddc.read_vcp(bus, code) for code in ddc.FEATURE_NAMES})
+            codes = [*ddc.FEATURE_NAMES, ddc.RED_GAIN, ddc.BLUE_GAIN]
+            found = [(bus, name, {code: ddc.read_vcp(bus, code) for code in codes})
                      for bus, name in ddc.detect_displays()]
             # Share what was read, so the top-bar menu shows the same levels.
             for bus, _, values in found:
                 for code, reading in values.items():
-                    if reading:
+                    if reading and code in ddc.FEATURE_NAMES:
                         ddc.record_levels(code, {bus: reading[0]}, {bus: reading[1]})
             self.has_laptop_screen = laptop.get_brightness() is not None
             GLib.idle_add(self._show, found, None)
@@ -390,12 +542,13 @@ class DimlyWindow(Adw.ApplicationWindow):
                     bus, lambda code, value, n=name: GLib.idle_add(self._write_failed, n, code, value))
             self.monitor_groups[bus] = MonitorGroup(self.writers[bus], name, values)
             page.add(self.monitor_groups[bus])
-        if self.night_light:
-            self.warmth_group = WarmthGroup(self.night_light)
+        can_warm = warmth.available()
+        self.warmth_group = WarmthGroup(self.night_light) if can_warm else None
+        if self.warmth_group:
             page.add(self.warmth_group)
-        if self.has_laptop_screen:
-            page.add(LaptopGroup())
-        page.add(PresetsGroup(self._presets_changed))
+        if len(found) > 1 or self.has_laptop_screen:
+            page.add(SyncGroup(len(found) > 1, self.has_laptop_screen))
+        page.add(PresetsGroup(self._presets_changed, can_warm))
         page.add(ScheduleGroup())
         if integration.top_bar_available():
             page.add(TopBarGroup())
@@ -427,8 +580,8 @@ class DimlyWindow(Adw.ApplicationWindow):
         dialog = Gtk.MessageDialog(
             transient_for=self, modal=True, message_type=Gtk.MessageType.QUESTION,
             text=f"Reset {name} to factory settings?",
-            secondary_text="Colours and sharpness go back to factory values. "
-                           "Brightness and contrast stay where they are.",
+            secondary_text="Sharpness and other settings go back to factory values. "
+                           "Brightness, contrast and colour stay as they are.",
         )
         dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
         dialog.add_button("Reset", Gtk.ResponseType.ACCEPT).add_css_class("destructive-action")
@@ -454,7 +607,8 @@ class DimlyWindow(Adw.ApplicationWindow):
         self.load()
 
     def _write_failed(self, name, code, value):
-        self.toasts.add_toast(Adw.Toast(title=f"{name} didn't accept {ddc.FEATURE_NAMES[code]} {value}. Try again."))
+        what = ddc.FEATURE_NAMES.get(code, "colour")
+        self.toasts.add_toast(Adw.Toast(title=f"{name} didn't accept {what} {value}. Try again."))
 
 
 class DimlyApp(Adw.Application):

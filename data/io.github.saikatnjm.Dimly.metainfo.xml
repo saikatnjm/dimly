@@ -15,10 +15,10 @@
       dims both on a schedule, for long working days that are easier on your eyes.
     </p>
     <ul>
-      <li>Brightness, contrast and warmth sliders, plus one-click Night, Evening, Day and Max presets you can adjust</li>
+      <li>Brightness, contrast and warmth sliders, plus one-click Night, Evening, Day and Max presets that set all three, at levels you choose</li>
       <li>Your laptop's brightness keys change the external monitors too</li>
       <li>A top-bar menu, and keyboard shortcuts for brighter and dimmer</li>
-      <li>Switches preset by time of day; a change you make yourself lasts until the next switch</li>
+      <li>Switches preset by time of day, dimmer and warmer into the evening; a change you make yourself lasts until the next switch</li>
       <li>Newly connected monitors join in automatically</li>
       <li>Factory reset for monitors whose backlight has stopped dimming</li>
     </ul>
@@ -49,6 +49,19 @@
   </supports>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="0.5.0" date="2026-11-11">
+      <description>
+        <ul>
+          <li>Presets set brightness, contrast and warmth together, and can keep contrast or warmth as they are</li>
+          <li>Warmth also works where the desktop has no night light, such as older Linux Mint</li>
+          <li>The Linux Mint panel menu's warmth slider goes through the background service</li>
+          <li>A colour slider per monitor, for matching monitors of different makes</li>
+          <li>With several monitors, choose whether they move together or one by one</li>
+          <li>Keep the laptop screen a little brighter or dimmer than the monitors while in sync</li>
+          <li>Factory reset keeps the monitor's colour mode and colour gains</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.4.0" date="2026-11-11">
       <description>
         <ul>

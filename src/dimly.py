@@ -12,10 +12,11 @@ import about
 import ddc
 
 
-def change(new_value, title):
+def change(apply, title):
+    """Run apply(), which returns set_brightness's results, and show how it went."""
     from notify import level_bar, notify
 
-    results = ddc.set_brightness(new_value)
+    results = apply()
     if not results:
         notify("No adjustable monitor found", "Check the cable, and that DDC/CI is on in the monitor's menu.")
         return 1
@@ -31,7 +32,8 @@ def main():
     action.add_argument("--up", action="store_true", help="brighten by one step")
     action.add_argument("--down", action="store_true", help="dim by one step")
     action.add_argument("--set", type=int, metavar="LEVEL", help="set brightness to LEVEL, from 0 to 100")
-    action.add_argument("--preset", choices=ddc.PRESET_NAMES, help="switch to a preset")
+    action.add_argument("--preset", choices=ddc.PRESET_NAMES,
+                        help="switch to a preset: its brightness, contrast and warmth")
     action.add_argument("--apply-schedule", action="store_true",
                         help="apply the scheduled preset if a new time slot has started "
                              "(the background service does this by itself)")
@@ -44,11 +46,12 @@ def main():
 
     if args.up or args.down:
         step = ddc.load_config()["step"] * (1 if args.up else -1)
-        return change(lambda current, _: current + step, "Brightness")
+        return change(lambda: ddc.set_brightness(lambda current, _: current + step), "Brightness")
     if args.set is not None:
-        return change(ddc.level(args.set), "Brightness")
+        return change(lambda: ddc.set_brightness(ddc.level(args.set)), "Brightness")
     if args.preset:
-        return change(ddc.level(ddc.presets()[args.preset]), args.preset)
+        from service import apply_preset
+        return change(lambda: apply_preset(args.preset), args.preset)
     if args.apply_schedule:
         import service
         service.apply_schedule()

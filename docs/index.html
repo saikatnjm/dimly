@@ -22,9 +22,9 @@
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   "name": "Dimly",
-  "description": "Controls external monitors' brightness and contrast over DDC/CI, keeps them in step with the laptop screen, warms every screen through the desktop's night light, and dims them on a schedule.",
+  "description": "Controls external monitors' brightness and contrast over DDC/CI, keeps them in step with the laptop screen, warms every screen, and switches presets of all three on a schedule.",
   "url": "https://saikatnjm.github.io/dimly/",
-  "downloadUrl": "https://github.com/saikatnjm/dimly/releases/latest",
+  "downloadUrl": "https://github.com/saikatnjm/dimly/releases/latest/download/dimly_latest_all.deb",
   "image": "https://saikatnjm.github.io/dimly/og-image.jpg",
   "applicationCategory": "UtilitiesApplication",
   "operatingSystem": "Linux (Ubuntu 22.04 to 26.04, Linux Mint)",
@@ -100,7 +100,7 @@
       "name": "Does it work on Linux Mint?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes. Install the same .deb; Dimly's menu appears in Mint's panel, with the same sliders and presets. Following the laptop's brightness keys isn't available on Mint yet: bind dimly --up and dimly --down to keys in Mint's Keyboard settings instead."
+        "text": "Yes. Install the same .deb; Dimly's menu appears in Mint's panel, with the same sliders and presets, warmth included. Following the laptop's brightness keys isn't available on Mint yet: bind dimly --up and dimly --down to keys in Mint's Keyboard settings instead."
       }
     },
     {
@@ -447,7 +447,7 @@
         <span lang="bn">লিনাক্সে সাধারণত শুধু ল্যাপটপের স্ক্রিনের আলো কমানো-বাড়ানো যায়। Dimly ক্যাবলের মাধ্যমেই বাইরের মনিটরের আসল ব্যাকলাইট নিয়ন্ত্রণ করে, ল্যাপটপের সাথে তাল মিলিয়ে রাখে, দিনের সময় বুঝে দুটোর আলোই কমিয়ে দেয়, আর রাতে সব স্ক্রিন উষ্ণ করে তোলে।</span>
       </p>
       <div class="actions rise d2">
-        <a class="btn primary" data-download href="https://github.com/saikatnjm/dimly/releases/latest">
+        <a class="btn primary" data-download download href="https://github.com/saikatnjm/dimly/releases/latest/download/dimly_latest_all.deb">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0l-5-5m5 5l5-5M5 21h14"/></svg>
           <span class="stack">
             <span><span lang="en">Download for Ubuntu &amp; Mint</span><span lang="bn">Ubuntu ও Mint-এর জন্য ডাউনলোড</span></span>
@@ -494,8 +494,8 @@
           </div>
           <div class="row">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 1.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zm0 0v11a5.5 5.5 0 010-11z"/></svg>
-            <input type="range" min="0" max="100" value="50" aria-label="Contrast" data-demo-contrast>
-            <output data-demo-contrast-value>50</output>
+            <input type="range" min="0" max="100" value="40" aria-label="Contrast" data-demo-contrast>
+            <output data-demo-contrast-value>40</output>
           </div>
           <div class="row">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>
@@ -503,10 +503,10 @@
             <output data-demo-warmth-value>0</output>
           </div>
           <div class="chips">
-            <button type="button" data-level="10">Night</button>
-            <button type="button" data-level="30">Evening</button>
-            <button type="button" data-level="60" aria-pressed="true">Day</button>
-            <button type="button" data-level="100">Max</button>
+            <button type="button" data-level="10" data-contrast="30" data-warmth="50">Night</button>
+            <button type="button" data-level="30" data-contrast="35" data-warmth="30">Evening</button>
+            <button type="button" data-level="60" data-contrast="40" data-warmth="0" aria-pressed="true">Day</button>
+            <button type="button" data-level="100" data-warmth="0">Max</button>
           </div>
           <hr>
           <div class="open">Open Dimly</div>
@@ -531,7 +531,7 @@
       <div class="card">
         <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></div>
         <h3><span lang="en">Real backlight control</span><span lang="bn">আসল ব্যাকলাইট নিয়ন্ত্রণ</span></h3>
-        <p><span lang="en">Brightness and contrast sliders, plus one-click Night, Evening, Day and Max presets. No more fiddly monitor buttons.</span><span lang="bn">ব্রাইটনেস আর কনট্রাস্টের স্লাইডার, সাথে এক ক্লিকে Night, Evening, Day ও Max প্রিসেট। মনিটরের ছোট ছোট বাটন টিপে আর মেনু ঘাঁটতে হবে না।</span></p>
+        <p><span lang="en">Brightness and contrast sliders, plus one-click Night, Evening, Day and Max presets that set brightness, contrast and warmth together. No more fiddly monitor buttons.</span><span lang="bn">ব্রাইটনেস আর কনট্রাস্টের স্লাইডার, সাথে এক ক্লিকে Night, Evening, Day ও Max প্রিসেট, যা ব্রাইটনেস, কনট্রাস্ট আর উষ্ণতা একসাথে ঠিক করে দেয়। মনিটরের ছোট ছোট বাটন টিপে আর মেনু ঘাঁটতে হবে না।</span></p>
       </div>
       <div class="card">
         <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="13" height="9" rx="1.5"/><path d="M6 16h5M17 8h4v9h-4zM8.5 13v3"/></svg></div>
@@ -541,7 +541,7 @@
       <div class="card">
         <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg></div>
         <h3><span lang="en">Dims on a schedule</span><span lang="bn">সময় বুঝে আলো কমায়</span></h3>
-        <p><span lang="en">Switches preset by time of day. If you change it yourself, your setting lasts until the next switch.</span><span lang="bn">দিনের কোন সময়ে কোন প্রিসেট থাকবে ঠিক করে দিন। মাঝখানে নিজে বদলালে সেটাই থাকবে পরের নির্ধারিত সময় পর্যন্ত।</span></p>
+        <p><span lang="en">Switches preset by time of day, so the screens get dimmer and warmer as the evening goes on. If you change it yourself, your setting lasts until the next switch.</span><span lang="bn">দিনের কোন সময়ে কোন প্রিসেট থাকবে ঠিক করে দিন, তাহলে সন্ধ্যা যত গড়াবে স্ক্রিন তত মৃদু আর উষ্ণ হবে। মাঝখানে নিজে বদলালে সেটাই থাকবে পরের নির্ধারিত সময় পর্যন্ত।</span></p>
       </div>
       <div class="card">
         <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 8h18M14 12h4M14 15h4"/></svg></div>
@@ -556,7 +556,7 @@
       <div class="card">
         <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 14.8V4a2 2 0 00-4 0v10.8a4 4 0 104 0z"/><path d="M12 11v6"/></svg></div>
         <h3><span lang="en">Warmth for every screen</span><span lang="bn">সব স্ক্রিনে উষ্ণতা</span></h3>
-        <p><span lang="en">One slider for less blue light on every screen, laptop included, from sunset to sunrise or all the time.</span><span lang="bn">একটা স্লাইডারেই সব স্ক্রিনে, ল্যাপটপসহ, নীল আলো কমান। চলবে সূর্যাস্ত থেকে সূর্যোদয় পর্যন্ত, বা সারাক্ষণ।</span></p>
+        <p><span lang="en">One slider for less blue light on every screen, laptop included, from sunset to sunrise or all the time. Works even where the desktop has no night light of its own.</span><span lang="bn">একটা স্লাইডারেই সব স্ক্রিনে, ল্যাপটপসহ, নীল আলো কমান। চলবে সূর্যাস্ত থেকে সূর্যোদয় পর্যন্ত, বা সারাক্ষণ। ডেস্কটপে নিজস্ব নাইট লাইট না থাকলেও কাজ করে।</span></p>
       </div>
     </div>
   </div>
@@ -571,7 +571,7 @@
     <div class="prose">
       <p><span lang="en">On Ubuntu and Linux Mint, the brightness keys and the slider in the system menu only change a laptop's built-in screen. An external monitor has its own backlight, which you normally have to change with the small buttons on its edge.</span><span lang="bn">Ubuntu আর Linux Mint-এ ব্রাইটনেস বাটন আর সিস্টেম মেনুর স্লাইডার শুধু ল্যাপটপের নিজের স্ক্রিনের আলো বদলায়। বাইরের মনিটরের ব্যাকলাইট আলাদা, সেটা সাধারণত মনিটরের কোণার ছোট ছোট বাটন টিপে বদলাতে হয়।</span></p>
       <p><span lang="en">Most monitors also accept these settings over the video cable, through a standard called DDC/CI. Dimly uses it, through the trusted <code>ddcutil</code> tool, to change your monitor's real backlight and contrast. It doesn't just darken the picture in software: the screen gives off less light, which is what your eyes notice.</span><span lang="bn">বেশিরভাগ মনিটর এই সেটিংস ভিডিও ক্যাবলের মাধ্যমেও নিতে পারে, DDC/CI নামের একটা স্ট্যান্ডার্ড দিয়ে। Dimly নির্ভরযোগ্য <code>ddcutil</code> টুল দিয়ে এটাই ব্যবহার করে মনিটরের আসল ব্যাকলাইট আর কনট্রাস্ট বদলায়। এটা শুধু সফটওয়্যারে ছবি কালো করে না: স্ক্রিন থেকেই কম আলো বের হয়, আর চোখ সেটাই টের পায়।</span></p>
-      <p><span lang="en">Because Dimly sees every screen, it keeps them at the same level. Press your laptop's brightness keys and every monitor follows, or let the schedule dim them in the evening. For colour, it uses the desktop's own night light, so the warmth matches on every screen too.</span><span lang="bn">Dimly সব স্ক্রিন একসাথে দেখে, তাই সবগুলোকে একই লেভেলে রাখে। ল্যাপটপের ব্রাইটনেস বাটন চাপলে সব মনিটরও সাথে সাথে বদলায়, অথবা সময়সূচি দিয়ে সন্ধ্যায় নিজে থেকেই আলো কমিয়ে দিন। রঙের জন্য এটা ডেস্কটপের নিজের নাইট লাইট ব্যবহার করে, তাই উষ্ণতাও সব স্ক্রিনে এক রকম থাকে।</span></p>
+      <p><span lang="en">Because Dimly sees every screen, it keeps them at the same level. Press your laptop's brightness keys and every monitor follows, or let the schedule dim them in the evening. For colour, it uses the desktop's own night light, or tints the screens itself where there's none, so the warmth matches on every screen too.</span><span lang="bn">Dimly সব স্ক্রিন একসাথে দেখে, তাই সবগুলোকে একই লেভেলে রাখে। ল্যাপটপের ব্রাইটনেস বাটন চাপলে সব মনিটরও সাথে সাথে বদলায়, অথবা সময়সূচি দিয়ে সন্ধ্যায় নিজে থেকেই আলো কমিয়ে দিন। রঙের জন্য এটা ডেস্কটপের নিজের নাইট লাইট ব্যবহার করে, আর সেটা না থাকলে নিজেই স্ক্রিনের রং উষ্ণ করে দেয়, তাই উষ্ণতাও সব স্ক্রিনে এক রকম থাকে।</span></p>
     </div>
   </div>
 </section>
@@ -594,8 +594,8 @@
     <div class="steps">
       <div class="step">
         <h3><span lang="en">Download and install</span><span lang="bn">ডাউনলোড ও ইনস্টল</span></h3>
-        <p><span lang="en">Get <a data-download href="https://github.com/saikatnjm/dimly/releases/latest"><code data-deb-name>dimly_0.4.0_all.deb</code></a>, then:</span><span lang="bn"><a data-download href="https://github.com/saikatnjm/dimly/releases/latest"><code data-deb-name>dimly_0.4.0_all.deb</code></a> ফাইলটা নামিয়ে নিন, তারপর:</span></p>
-        <div class="cmd"><code>sudo apt install ./<span data-deb-name>dimly_0.4.0_all.deb</span></code><button class="copy" type="button" aria-label="Copy command"></button></div>
+        <p><span lang="en">Get <a data-download download href="https://github.com/saikatnjm/dimly/releases/latest/download/dimly_latest_all.deb"><code data-deb-name>dimly_latest_all.deb</code></a>, then:</span><span lang="bn"><a data-download download href="https://github.com/saikatnjm/dimly/releases/latest/download/dimly_latest_all.deb"><code data-deb-name>dimly_latest_all.deb</code></a> ফাইলটা নামিয়ে নিন, তারপর:</span></p>
+        <div class="cmd"><code>sudo apt install ./<span data-deb-name>dimly_latest_all.deb</span></code><button class="copy" type="button" aria-label="Copy command"></button></div>
       </div>
       <div class="step">
         <h3><span lang="en">Log out and back in</span><span lang="bn">লগ আউট করে আবার লগ ইন</span></h3>
@@ -661,7 +661,7 @@
       </details>
       <details>
         <summary><span lang="en">Does it work on Linux Mint?</span><span lang="bn">Linux Mint-এ কি চলে?</span></summary>
-        <p><span lang="en">Yes. Install the same <code>.deb</code>; Dimly's menu appears in Mint's panel, with the same sliders and presets. Following the laptop's brightness keys isn't available on Mint yet: bind <code>dimly --up</code> and <code>dimly --down</code> to keys in Mint's Keyboard settings instead.</span><span lang="bn">হ্যাঁ। একই <code>.deb</code> ফাইল ইনস্টল করুন; Dimly-র মেনু Mint-এর প্যানেলে চলে আসবে, একই স্লাইডার আর প্রিসেটসহ। Mint-এ ল্যাপটপের ব্রাইটনেস বাটনের সাথে সিঙ্ক এখনো নেই: তার বদলে Mint-এর Keyboard সেটিংস থেকে <code>dimly --up</code> আর <code>dimly --down</code> কোনো কী-তে বসিয়ে নিন।</span></p>
+        <p><span lang="en">Yes. Install the same <code>.deb</code>; Dimly's menu appears in Mint's panel, with the same sliders and presets, warmth included. Following the laptop's brightness keys isn't available on Mint yet: bind <code>dimly --up</code> and <code>dimly --down</code> to keys in Mint's Keyboard settings instead.</span><span lang="bn">হ্যাঁ। একই <code>.deb</code> ফাইল ইনস্টল করুন; Dimly-র মেনু Mint-এর প্যানেলে চলে আসবে, উষ্ণতাসহ একই স্লাইডার আর প্রিসেট নিয়ে। Mint-এ ল্যাপটপের ব্রাইটনেস বাটনের সাথে সিঙ্ক এখনো নেই: তার বদলে Mint-এর Keyboard সেটিংস থেকে <code>dimly --up</code> আর <code>dimly --down</code> কোনো কী-তে বসিয়ে নিন।</span></p>
       </details>
       <details>
         <summary><span lang="en">My laptop has no external monitor. Is Dimly any use?</span><span lang="bn">আমার ল্যাপটপে বাইরের মনিটর নেই। Dimly কি কাজে লাগবে?</span></summary>
@@ -714,18 +714,23 @@
     buttons.forEach(function (b) { b.addEventListener("click", function () { setLang(b.dataset.setLang); }); });
   })();
 
-  // Point the download links straight at the latest release's .deb, so clicking
-  // downloads it. Without this (or if GitHub can't be reached) they keep linking
-  // to the releases page.
+  // The download links always fetch the newest .deb: every release carries a copy
+  // named dimly_latest_all.deb. GitHub's answer here only adds the version and
+  // size, so the links work even when GitHub limits how often a browser may ask.
   (function () {
     fetch("https://api.github.com/repos/saikatnjm/dimly/releases/latest")
       .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
       .then(function (release) {
         document.querySelectorAll("[data-version-tag]").forEach(function (el) { el.textContent = release.tag_name; });
-        var deb = (release.assets || []).find(function (a) { return /\.deb$/.test(a.name); });
+        var debs = (release.assets || []).filter(function (a) { return /\.deb$/.test(a.name); });
+        var deb = debs.find(function (a) { return a.name === "dimly_latest_all.deb"; });
+        if (!deb && debs.length) {
+          // A release from before the copy existed: link its own file instead.
+          deb = debs[0];
+          document.querySelectorAll("[data-download]").forEach(function (a) { a.href = deb.browser_download_url; });
+          document.querySelectorAll("[data-deb-name]").forEach(function (el) { el.textContent = deb.name; });
+        }
         if (!deb) return;
-        document.querySelectorAll("[data-download]").forEach(function (a) { a.href = deb.browser_download_url; });
-        document.querySelectorAll("[data-deb-name]").forEach(function (el) { el.textContent = deb.name; });
         var kb = Math.max(1, Math.round(deb.size / 1024));
         document.querySelectorAll("[data-version]").forEach(function (el) {
           el.textContent = release.tag_name + " · " + kb + " KB";
@@ -741,34 +746,41 @@
       .catch(function () {});
   })();
 
-  // The preview's slider and presets dim its little desktop, like Dimly does.
+  // The preview's sliders and presets dim and warm its little desktop, like Dimly
+  // does. A preset sets brightness, contrast and warmth; Max keeps the contrast.
   (function () {
     var wallpaper = document.querySelector(".wallpaper");
+    var tint = document.querySelector(".warm-tint");
     var slider = document.getElementById("demo-brightness");
     var value = document.querySelector("[data-demo-value]");
-    var chips = document.querySelectorAll(".chips button");
-    function show(level) {
-      slider.value = level;
-      value.textContent = level;
-      wallpaper.style.setProperty("--dim", (0.25 + 0.75 * level / 100).toFixed(2));
-      chips.forEach(function (c) { c.setAttribute("aria-pressed", String(Number(c.dataset.level) === Number(level))); });
-    }
-    slider.addEventListener("input", function () { show(slider.value); });
-    chips.forEach(function (c) { c.addEventListener("click", function () { show(c.dataset.level); }); });
-    var tint = document.querySelector(".warm-tint");
-    var warmth = document.querySelector("[data-demo-warmth]");
-    var warmthValue = document.querySelector("[data-demo-warmth-value]");
-    warmth.addEventListener("input", function () {
-      warmthValue.textContent = warmth.value;
-      tint.style.setProperty("--warm", (0.45 * warmth.value / 100).toFixed(2));
-    });
     var contrast = document.querySelector("[data-demo-contrast]");
     var contrastValue = document.querySelector("[data-demo-contrast-value]");
-    contrast.addEventListener("input", function () {
+    var warmth = document.querySelector("[data-demo-warmth]");
+    var warmthValue = document.querySelector("[data-demo-warmth-value]");
+    var chips = document.querySelectorAll(".chips button");
+    function show() {
+      value.textContent = slider.value;
       contrastValue.textContent = contrast.value;
+      warmthValue.textContent = warmth.value;
+      wallpaper.style.setProperty("--dim", (0.25 + 0.75 * slider.value / 100).toFixed(2));
       wallpaper.style.setProperty("--contrast", (0.6 + 0.8 * contrast.value / 100).toFixed(2));
+      tint.style.setProperty("--warm", (0.45 * warmth.value / 100).toFixed(2));
+      chips.forEach(function (c) {
+        var on = c.dataset.level === slider.value && (!c.dataset.contrast || c.dataset.contrast === contrast.value) &&
+                 c.dataset.warmth === warmth.value;
+        c.setAttribute("aria-pressed", String(on));
+      });
+    }
+    [slider, contrast, warmth].forEach(function (input) { input.addEventListener("input", show); });
+    chips.forEach(function (c) {
+      c.addEventListener("click", function () {
+        slider.value = c.dataset.level;
+        if (c.dataset.contrast) contrast.value = c.dataset.contrast;
+        warmth.value = c.dataset.warmth;
+        show();
+      });
     });
-    show(slider.value);
+    show();
   })();
 
   // Copy buttons on commands.

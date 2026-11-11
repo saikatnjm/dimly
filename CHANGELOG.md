@@ -2,6 +2,33 @@
 
 All notable changes to Dimly. Versions follow [semantic versioning](https://semver.org/).
 
+## 0.5.0 – 2026-11-11
+
+- **Presets set brightness, contrast and warmth together**, from the window, the menu,
+  the shortcuts and the schedule, so Evening and Night dim, soften and warm every screen.
+  Edit each preset under **Presets**; a preset can also keep contrast or warmth as they
+  are. Presets from earlier versions keep their brightness and get the new contrast and
+  warmth defaults. A preset's warmth shows at once, rather than waiting for sunset.
+- **Warmth without a night light:** where the desktop has none, as on older Linux Mint,
+  Dimly tints the screens itself on X11, with no extra package. The background service
+  puts the tint back after logging in, waking up or plugging in a screen.
+- On Linux Mint, the panel menu's warmth slider goes through Dimly's background service,
+  so it appears whichever way the warmth is made.
+- **Colour balance per monitor:** a Colour slider in each monitor's section, from cooler
+  to warmer, for matching monitors of different makes. It moves red and blue in opposite
+  directions around that monitor's own values, and a button puts them back. The first
+  time, it switches a monitor that needs it to its user colour mode.
+- **Keep monitors in sync:** with two or more monitors, moving one monitor's slider in
+  the window moves the others to the same level, each on its own range. Turn it off to
+  set them one by one; newly connected monitors then keep their own level too. It sits
+  in a new **Sync** section, with the laptop screen's sync and offset when there's a laptop.
+- **Laptop brighter by:** keeps the laptop screen a set amount brighter (or dimmer) than
+  the monitors while in sync, for screens that look different at the same level.
+- **Factory reset keeps your colour:** the colour mode and red, green and blue gains are
+  put back after a reset, along with brightness and contrast.
+- The website's download button fetches the newest `.deb` itself, every time: each
+  release also carries a copy named `dimly_latest_all.deb`.
+
 ## 0.4.0 – 2026-11-11
 
 - **Warmth:** a slider for less blue light on every screen, in the window and the menu.

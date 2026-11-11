@@ -11,22 +11,32 @@ its buttons, and keeps it at the same level as your laptop all day.
 ## Features
 
 - **Brightness and contrast sliders** for each monitor, plus one-click
-  **Night, Evening, Day and Max** presets, whose levels you can set.
-  The sliders follow changes made with the keys, shortcuts or schedule.
+  **Night, Evening, Day and Max** presets. Each preset sets brightness, contrast and
+  warmth together, and you choose its levels; a preset can also keep contrast or
+  warmth as they are. The sliders follow changes made with the keys, shortcuts or schedule.
 - **Warmth**: one slider for less blue light on every screen, through the desktop's
-  own night light, from sunset to sunrise or all the time.
+  own night light, from sunset to sunrise or all the time. Where the desktop has no
+  night light (as on older Linux Mint), Dimly tints the screens itself on X11.
 - **Laptop sync**: the laptop's brightness keys change the external monitors too,
-  and the sliders change both.
+  and the sliders change both. If the laptop looks dimmer than the monitor at the
+  same level, keep it a few steps brighter with **Laptop brighter by**.
+- **Colour balance** per monitor: one slider from cooler to warmer, for matching
+  monitors of different makes. It moves the monitor's red and blue around its own
+  values, and the button next to it puts them back.
 - **Top-bar menu**: brightness, contrast, warmth and the presets one click away,
   from the Dimly icon in the top bar (on Linux Mint, in the panel). Put it on the
   right, next to the clock or on the left.
 - **Keyboard shortcuts**: <kbd>Super</kbd>+<kbd>F6</kbd> brighter,
   <kbd>Super</kbd>+<kbd>F5</kbd> dimmer.
-- **Schedule**: switches preset by time of day. A change you make yourself lasts
-  until the next switch.
-- **Hot-plug**: a newly connected monitor is brought to the current level.
+- **Schedule**: switches preset by time of day, so the screens get dimmer and warmer
+  as the evening goes on. A change you make yourself lasts until the next switch.
+- **Several monitors** move together: one monitor's slider moves the others too, each
+  on its own range. Turn off **Keep monitors in sync** to set them one by one; the
+  shortcuts, menu, presets and schedule still change them all.
+- **Hot-plug**: a newly connected monitor is brought to the current level, while the
+  monitors are kept in sync.
 - **Factory reset** for monitors whose backlight has stopped responding to
-  brightness, keeping your brightness and contrast.
+  brightness, keeping your brightness, contrast and colour settings.
 
 Built for GNOME 42 to 50 (Ubuntu 22.04 to 26.04) and Linux Mint's Cinnamon, where
 the menu lives in the panel. On Cinnamon, laptop sync and the automatic keyboard
@@ -37,11 +47,12 @@ keys in Mint's Keyboard settings.
 
 ### Ubuntu / Debian package
 
-Download `dimly_<version>_all.deb` from the
-[releases page](https://github.com/saikatnjm/dimly/releases), then:
+Download [dimly_latest_all.deb](https://github.com/saikatnjm/dimly/releases/latest/download/dimly_latest_all.deb), always the newest
+version (each version is also on the [releases page](https://github.com/saikatnjm/dimly/releases)),
+then, in the folder you saved it to:
 
 ```bash
-sudo apt install ./dimly_0.4.0_all.deb
+sudo apt install ./dimly_latest_all.deb
 ```
 
 Log out and back in once, so your account can reach monitors and GNOME picks up
@@ -119,9 +130,13 @@ ddcutil getvcp 10
 | Change brightness on all screens | Laptop brightness keys, the Dimly icon in the top bar, the Brightness slider, or <kbd>Super</kbd>+<kbd>F6</kbd> / <kbd>F5</kbd> |
 | Hide the top-bar icon | Turn off **Show Dimly in the top bar** in the window |
 | Move the top-bar icon | Pick **Right**, **Next to the clock** or **Left** under **Position** |
+| Change what a preset does | Open it under **Presets** and set its brightness, contrast and warmth. Below 0 means **Keep**: the preset leaves that setting alone |
 | Change the schedule | Edit the times and presets in the **Schedule** section |
 | Change the shortcut keys | GNOME Settings → Keyboard → Custom Shortcuts |
-| Keep the laptop screen separate | Turn off **Keep in sync with the monitor** |
+| Keep the laptop screen separate | Turn off **Keep the laptop screen in sync** under **Sync** |
+| Set each monitor on its own | Turn off **Keep monitors in sync** (shown with two or more monitors) |
+| Make the laptop match the monitor | Set **Laptop brighter by**, e.g. 10; below 0 keeps it dimmer |
+| Match a monitor's colour to another screen | Move its **Colour** slider; the button next to it undoes it |
 
 From a terminal:
 
@@ -135,7 +150,7 @@ The other options are `--down`, `--set 40` and `--preset Night`. See
 ### Settings file
 
 Settings live in `~/.config/dimly/config.json`. The window edits all of them, including
-the preset levels, except how much each shortcut press changes. To change that, edit
+the presets, except how much each shortcut press changes. To change that, edit
 the file:
 
 ```json

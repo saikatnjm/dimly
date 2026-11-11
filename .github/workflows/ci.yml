@@ -71,4 +71,7 @@ jobs:
         run: |
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 \
             || gh release create "$GITHUB_REF_NAME" --title "Dimly ${GITHUB_REF_NAME#v}" --generate-notes
+          # A copy under a name that never changes, so the website can always link
+          # straight to .../releases/latest/download/dimly_latest_all.deb.
+          cp dist/dimly_*_all.deb dist/dimly_latest_all.deb
           gh release upload "$GITHUB_REF_NAME" dist/*.deb --clobber

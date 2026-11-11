@@ -23,8 +23,19 @@ from pathlib import Path
 FACTORY_RESET = 0x04
 BRIGHTNESS = 0x10
 CONTRAST = 0x12
+COLOUR_PRESET = 0x14  # e.g. sRGB, 6500 K or "User 1"; not a level but a choice
+RED_GAIN = 0x16
+GREEN_GAIN = 0x18
+BLUE_GAIN = 0x1A
 FEATURE_NAMES = {BRIGHTNESS: "brightness", CONTRAST: "contrast"}
+# What a factory reset puts back, in this order: a colour preset can reset the
+# gains, and changing either can move brightness and contrast.
+KEPT_BY_RESET = [COLOUR_PRESET, RED_GAIN, GREEN_GAIN, BLUE_GAIN, BRIGHTNESS, CONTRAST]
+# How far the colour balance shifts red and blue, as a share of the monitor's own values.
+COLOUR_RANGE = 50
 PRESET_NAMES = ["Night", "Evening", "Day", "Max"]
+# What a preset sets, each from 0 to 100. Contrast and warmth may be None: leave them as they are.
+PRESET_SETTINGS = ["brightness", "contrast", "warmth"]
 # Where the top-bar menu sits: in the right, centre (by the clock) or left part of the bar.
 TOP_BAR_POSITIONS = ["right", "center", "left"]
 
@@ -39,11 +50,21 @@ LOCK_DIR = Path(os.environ.get("XDG_RUNTIME_DIR") or CACHE_DIR) / "dimly"
 DEFAULT_CONFIG = {
     "step": 10,
     "sync_laptop": True,
-    # Levels from 0 to 100. Change them in the config file.
-    "presets": {"Night": 10, "Evening": 30, "Day": 60, "Max": 100},
+    # Moving one monitor's slider in the window moves the others too.
+    "sync_monitors": True,
+    # Dim and warm in the evening, for tired eyes. Change them in Dimly's window.
+    "presets": {
+        "Night": {"brightness": 10, "contrast": 30, "warmth": 50},
+        "Evening": {"brightness": 30, "contrast": 35, "warmth": 30},
+        "Day": {"brightness": 60, "contrast": 40, "warmth": 0},
+        "Max": {"brightness": 100, "contrast": None, "warmth": 0},
+    },
     "schedule_enabled": True,
     "schedule": [["08:00", "Day"], ["18:00", "Evening"], ["22:00", "Night"]],
     "top_bar_position": "right",
+    # How much brighter the laptop screen is kept than the monitors, in percent;
+    # below 0, dimmer. Screens of different makes look different at the same level.
+    "laptop_offset": 0,
 }
 
 
@@ -127,34 +148,126 @@ def read_vcp(bus, code):
     return None
 
 
+def read_setting(bus, code):
+    """Return a feature's current value, whether a level or a choice like the colour preset, or None."""
+    res = ddcutil("--bus", str(bus), "getvcp", "--brief", f"{code:02x}")
+    # "VCP 10 C 35 100" for a level, "VCP 14 SNC x0b" for a choice.
+    parts = res.stdout.split()
+    if res.returncode != 0 or len(parts) < 4:
+        return None
+    if parts[2] == "C":
+        return int(parts[3])
+    if parts[2] == "SNC" and re.fullmatch(r"x[0-9a-fA-F]+", parts[3]):
+        return int(parts[3][1:], 16)
+    return None
+
+
 def write_vcp(bus, code, value):
     return ddcutil("--bus", str(bus), "setvcp", f"{code:02x}", str(value)).returncode == 0
 
 
 def factory_reset(bus):
-    """Restore the monitor's factory settings, keeping its brightness and contrast.
+    """Restore the monitor's factory settings, keeping its brightness, contrast and colour.
 
     This clears monitor states that ignore brightness. The reset itself turns
-    brightness to full and contrast to the factory value, so the previous
-    values are put back afterwards.
+    brightness to full and resets contrast, the colour preset and the colour
+    gains, so the previous values are put back afterwards. Anything the monitor
+    doesn't report is left at its factory value.
     """
     with monitor_lock():
-        before = {code: read_vcp(bus, code) for code in FEATURE_NAMES}
+        before = {code: read_setting(bus, code) for code in KEPT_BY_RESET}
         if before[BRIGHTNESS] is None:
             return False  # not answering at all, so a reset would only lose its levels
         if not write_vcp(bus, FACTORY_RESET, 1):
             return False
         # While it resets, the monitor accepts commands and then ignores them,
         # so keep writing until reading back shows the value has stuck.
-        for code, reading in before.items():
-            if reading is None:
+        for code in KEPT_BY_RESET:
+            if before[code] is None:
                 continue
             for _ in range(10):
                 time.sleep(1)
-                if write_vcp(bus, code, reading[0]) and read_vcp(bus, code) == reading:
+                if write_vcp(bus, code, before[code]) and read_setting(bus, code) == before[code]:
                     break
         time.sleep(1.5)  # it answers reads only after settling again
     return True
+
+
+# Colour balance, per monitor: one setting from cooler (-50) to warmer (50) that
+# moves the red and blue gains in opposite directions from the monitor's own
+# values. Makes differ, so each monitor keeps its own base and balance.
+
+
+def colour_gains(base, balance):
+    """Return (red, blue) gains for a balance, from a base saved by colour_base()."""
+    share = max(-COLOUR_RANGE, min(COLOUR_RANGE, balance)) / 100
+    red = round(base["red"] * (1 + share))
+    blue = round(base["blue"] * (1 - share))
+    return max(0, min(base["red_max"], red)), max(0, min(base["blue_max"], blue))
+
+
+def user_colour_preset(capabilities):
+    """The colour preset value named "User..." in ddcutil's capabilities output, or None."""
+    feature = re.search(r"Feature: 14\b.*?(?=\n\s*Feature: |\Z)", capabilities, re.S)
+    if not feature:
+        return None
+    for value, name in re.findall(r"^\s+([0-9a-fA-F]{2}): (.+)$", feature.group(0), re.M):
+        if name.strip().lower().startswith("user"):
+            return int(value, 16)
+    return None
+
+
+def saved_colour_base(bus):
+    """The colour base saved by colour_base(), with the balance last set, or None."""
+    saved = load_state().get("colour", {}).get(str(bus))
+    if isinstance(saved, dict) and all(type(saved.get(k)) is int for k in ("red", "blue", "red_max", "blue_max")):
+        return saved
+    return None
+
+
+def colour_base(bus):
+    """Return the monitor's saved colour base, saving it the first time.
+
+    Many monitors ignore the gains except in a user colour mode, so the first
+    time this switches to one, if the monitor has one and isn't in it already.
+    Returns None if the monitor doesn't report red and blue gains.
+    """
+    saved = saved_colour_base(bus)
+    if saved:
+        return saved
+    with monitor_lock():
+        user = user_colour_preset(ddcutil("--bus", str(bus), "capabilities", timeout=30).stdout)
+        if user is not None and read_setting(bus, COLOUR_PRESET) != user:
+            write_vcp(bus, COLOUR_PRESET, user)
+            time.sleep(1)  # the gains read back only once the mode has changed
+        red, blue = read_vcp(bus, RED_GAIN), read_vcp(bus, BLUE_GAIN)
+    if not red or not blue:
+        return None
+    base = {"red": red[0], "blue": blue[0], "red_max": red[1], "blue_max": blue[1], "balance": 0}
+    modify_state(lambda state: state.setdefault("colour", {}).update({str(bus): base}))
+    return base
+
+
+def save_colour_balance(bus, balance):
+    def save(state):
+        entry = state.get("colour", {}).get(str(bus))
+        if isinstance(entry, dict):
+            entry["balance"] = balance
+
+    modify_state(save)
+
+
+# The laptop screen next to the monitors
+
+
+def laptop_level(monitor_percent):
+    """The laptop brightness, in percent, that goes with this monitor brightness."""
+    return max(0, min(100, monitor_percent + load_config()["laptop_offset"]))
+
+
+def monitor_level(laptop_percent):
+    """The monitor brightness, in percent, that goes with this laptop brightness."""
+    return max(0, min(100, laptop_percent - load_config()["laptop_offset"]))
 
 
 def level(percent):
@@ -181,45 +294,51 @@ def set_brightness(new_value, sync_laptop=True):
     """
     # Locked from read to write, so quick key presses each build on the last one.
     with monitor_lock():
-        results = _set_brightness(new_value)
+        results = _set_level(BRIGHTNESS, new_value)
     if results and sync_laptop and load_config()["sync_laptop"]:
         import laptop
         value, maximum = results[0]
-        laptop.set_brightness(round(100 * value / maximum))
+        laptop.set_brightness(laptop_level(round(100 * value / maximum)))
     return results
 
 
-def _set_brightness(new_value):
+def set_contrast(new_value):
+    """Like set_brightness, for contrast. The laptop screen has none."""
+    with monitor_lock():
+        return _set_level(CONTRAST, new_value)
+
+
+def _set_level(code, new_value):
     for buses in (load_state().get("buses"), None):
         if buses is None:
             buses = [bus for bus, _ in detect_displays()]
-        results = _set_brightness_on(buses, new_value)
+        results = _set_level_on(buses, code, new_value)
         if results:
             return results
     return []
 
 
-def set_brightness_on(buses, new_value):
+def set_brightness_on(buses, new_value, code=BRIGHTNESS):
     """Like set_brightness, for just these monitors and without moving the laptop screen."""
     with monitor_lock():
-        return _set_brightness_on(buses, new_value)
+        return _set_level_on(buses, code, new_value)
 
 
-def _set_brightness_on(buses, new_value):
+def _set_level_on(buses, code, new_value):
     results = []
     levels = {}
     maxima = {}
     for bus in buses:
-        reading = read_vcp(bus, BRIGHTNESS)
+        reading = read_vcp(bus, code)
         if reading is None:
             continue
         current, maximum = reading
         value = max(0, min(maximum, new_value(current, maximum)))
-        if value == current or write_vcp(bus, BRIGHTNESS, value):
+        if value == current or write_vcp(bus, code, value):
             results.append((value, maximum))
             levels[bus] = value
             maxima[bus] = maximum
-    record_levels(BRIGHTNESS, levels, maxima)
+    record_levels(code, levels, maxima)
     return results
 
 
@@ -285,7 +404,8 @@ class Writer(threading.Thread):
     def _write(self, code, value):
         for _ in range(3):
             if write_vcp(self.bus, code, value):
-                record_levels(code, {self.bus: value})
+                if code in FEATURE_NAMES:  # colour gains are kept apart, per monitor
+                    record_levels(code, {self.bus: value})
                 return True
             with self.cond:
                 if code in self.pending:  # a newer value replaces this one
@@ -371,8 +491,9 @@ def load_config():
     for key, default in DEFAULT_CONFIG.items():
         if type(config.get(key)) is not type(default):
             config[key] = copy.deepcopy(default)
-    config["presets"] = {name: value for name, value in config["presets"].items()
-                         if name in PRESET_NAMES and type(value) is int}
+    config["presets"] = {name: preset for name, preset in
+                         ((name, _preset(name, value)) for name, value in config["presets"].items()) if preset}
+    config["laptop_offset"] = max(-50, min(50, config["laptop_offset"]))
     if config["top_bar_position"] not in TOP_BAR_POSITIONS:
         config["top_bar_position"] = DEFAULT_CONFIG["top_bar_position"]
     config["schedule"] = [entry for entry in config["schedule"]
@@ -380,9 +501,37 @@ def load_config():
     return config
 
 
+def _preset(name, value):
+    """Return a preset from the config file as {setting: level or None}, or None if it isn't one.
+
+    Before 0.5.0 a preset was just a brightness; that keeps its brightness and
+    gets the default contrast and warmth.
+    """
+    if name not in PRESET_NAMES:
+        return None
+    preset = copy.deepcopy(DEFAULT_CONFIG["presets"][name])
+    if type(value) is int:
+        value = {"brightness": value}
+    if not isinstance(value, dict):
+        return None
+    for key in PRESET_SETTINGS:
+        level = value.get(key, preset[key])
+        if type(level) is int:
+            preset[key] = max(0, min(100, level))
+        elif level is None and key != "brightness":
+            preset[key] = None
+    return preset
+
+
 def presets():
-    """Return {name: level} for the presets, filling in any the config file leaves out."""
-    return {**DEFAULT_CONFIG["presets"], **load_config()["presets"]}
+    """Return {name: {setting: level or None}}, filling in any preset the config file leaves out."""
+    return {**copy.deepcopy(DEFAULT_CONFIG["presets"]), **load_config()["presets"]}
+
+
+def describe(preset):
+    """A preset in a few words, like "Brightness 30 · contrast 35 · warmth 30"."""
+    parts = [f"{key} {preset[key]}" for key in PRESET_SETTINGS if preset[key] is not None]
+    return " · ".join(parts).capitalize()
 
 
 def update_config(**changes):

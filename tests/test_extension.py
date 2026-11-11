@@ -3,6 +3,7 @@
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -116,6 +117,24 @@ class CinnamonPanelTest(unittest.TestCase):
     def test_applet_metadata_matches(self):
         meta = json.loads((EXTENSION / "cinnamon" / "metadata.json").read_text())
         self.assertEqual(meta["uuid"], self.uuid)
+
+
+class InterfaceTest(unittest.TestCase):
+    def test_menus_ask_the_service_only_for_what_it_offers(self):
+        import xml.etree.ElementTree as ElementTree
+
+        import service
+
+        def members(xml):
+            return {(member.tag, member.get("name"), tuple((arg.get("type"), arg.get("direction"))
+                                                           for arg in member.findall("arg")))
+                    for member in ElementTree.fromstring(xml).find("interface")}
+
+        offered = members(service.INTERFACE_XML)
+        for menu in ("gnome42/extension.js", "gnome45/extension.js", "cinnamon/applet.js"):
+            xml = re.search(r"<node>.*?</node>", (EXTENSION / menu).read_text(), re.S).group(0)
+            with self.subTest(menu=menu):
+                self.assertLessEqual(members(xml), offered)
 
 
 class PositionTest(unittest.TestCase):

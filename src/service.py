@@ -1,7 +1,7 @@
 """Dimly's background service, running while you're logged in.
 
 - Monitors follow the laptop screen, e.g. its brightness keys.
-- The schedule switches presets at its set times. The service sleeps until the
+- The schedule switches presets (brightness, contrast and warmth) at its set times. The service sleeps until the
   next switch instead of checking every few minutes.
 - Newly connected monitors are brought to the current level.
 - The top-bar menu controls monitors through the D-Bus interface below. Its
@@ -18,12 +18,15 @@ from gi.repository import Gio, GLib
 import ddc
 import integration
 import laptop
+import warmth
 from notify import notify
 
 BUS_NAME = "io.github.saikatnjm.Dimly.Service"
 OBJECT_PATH = "/io/github/saikatnjm/Dimly/Service"
 INTERFACE = "io.github.saikatnjm.Dimly.Service"
 # Levels on this interface are percentages, whatever range a monitor uses.
+# Warmth is -1 where it can't be changed. It came in 0.5.0, as methods of its own,
+# so menus from older versions, still running until the next log in, keep working.
 INTERFACE_XML = f"""<node><interface name="{INTERFACE}">
   <method name="GetState">
     <arg name="brightness" type="i" direction="out"/>
@@ -32,10 +35,13 @@ INTERFACE_XML = f"""<node><interface name="{INTERFACE}">
   <method name="SetBrightness"><arg name="level" type="i" direction="in"/></method>
   <method name="SetContrast"><arg name="value" type="i" direction="in"/></method>
   <method name="ApplyPreset"><arg name="name" type="s" direction="in"/></method>
+  <method name="GetWarmth"><arg name="level" type="i" direction="out"/></method>
+  <method name="SetWarmth"><arg name="level" type="i" direction="in"/></method>
   <signal name="Changed">
     <arg name="brightness" type="i"/>
     <arg name="contrast" type="i"/>
   </signal>
+  <signal name="WarmthChanged"><arg name="level" type="i"/></signal>
 </interface></node>"""
 # The longest the schedule sleeps between checks, so a clock change is caught
 # within this time even if no switch is due.
@@ -50,9 +56,9 @@ def current_level():
     if config["sync_laptop"]:
         percent = laptop.get_brightness()
         if percent is not None:
-            return percent
+            return ddc.monitor_level(percent)
     slot = ddc.current_slot(config["schedule"], datetime.now()) if config["schedule_enabled"] else None
-    return ddc.presets()[slot[1]] if slot else None
+    return ddc.presets()[slot[1]]["brightness"] if slot else None
 
 
 def read_levels(buses):
@@ -70,12 +76,26 @@ def add_new_monitors():
     displays = ddc.detect_displays()
     new = [bus for bus, _ in displays if bus not in known]
     if new:
-        target = current_level()
+        target = current_level() if ddc.load_config()["sync_monitors"] else None
         names = ", ".join(name for bus, name in displays if bus in new)
-        print(f"New monitor: {names} (bus {', '.join(map(str, new))}), setting level {target}", flush=True)
+        print(f"New monitor: {names} (bus {', '.join(map(str, new))}), level {target}", flush=True)
         read_levels(new)
         if target is not None:
             ddc.set_brightness_on(new, ddc.level(target))
+
+
+def apply_preset(name):
+    """Switch every monitor, and the laptop screen if it follows, to a preset.
+
+    Returns [(brightness, maximum)] for the monitors that took it.
+    """
+    preset = ddc.presets()[name]
+    results = ddc.set_brightness(ddc.level(preset["brightness"]))
+    if results and preset["contrast"] is not None:
+        ddc.set_contrast(ddc.level(preset["contrast"]))
+    if preset["warmth"] is not None:
+        warmth.set_level(preset["warmth"], now=True)
+    return results
 
 
 def apply_schedule():
@@ -86,9 +106,9 @@ def apply_schedule():
         return
     key, preset = slot
     # When no monitor answers, leave the slot unapplied so the next check tries again.
-    if ddc.set_brightness(ddc.level(ddc.presets()[preset])):
+    if apply_preset(preset):
         ddc.update_state(applied_slot=key)
-        notify(f"{preset} brightness", f"Switched by your schedule at {key.split()[1]}")
+        notify(preset, f"Switched by your schedule at {key.split()[1]}. {ddc.describe(ddc.presets()[preset])}")
 
 
 def in_background(function, *args):
@@ -107,10 +127,15 @@ class Service:
         self.schedule_timer = 0
         self.config_timer = 0
         self.last_emitted = None
+        self.last_warmth = None
 
         laptop.watch(self.laptop_changed)
         self.connection.signal_subscribe("org.gnome.Mutter.DisplayConfig", "org.gnome.Mutter.DisplayConfig",
                                          "MonitorsChanged", "/org/gnome/Mutter/DisplayConfig", None,
+                                         Gio.DBusSignalFlags.NONE, self.monitors_changed)
+        # Cinnamon's window manager has the same signal under its own name.
+        self.connection.signal_subscribe(None, "org.cinnamon.Muffin.DisplayConfig", "MonitorsChanged",
+                                         "/org/cinnamon/Muffin/DisplayConfig", None,
                                          Gio.DBusSignalFlags.NONE, self.monitors_changed)
         # Timers stand still while the computer sleeps, so check the schedule on waking up.
         self.system_bus.signal_subscribe("org.freedesktop.login1", "org.freedesktop.login1.Manager",
@@ -128,6 +153,9 @@ class Service:
         self.state_monitor.connect("changed", lambda *_: self.emit_changed())
         self.config_monitor = Gio.File.new_for_path(str(ddc.CONFIG_FILE)).monitor_file(Gio.FileMonitorFlags.NONE, None)
         self.config_monitor.connect("changed", lambda *_: self.config_changed())
+        self.night_light = warmth.settings()
+        if self.night_light:
+            self.night_light.connect("changed", lambda *_: self.emit_changed())
         in_background(self.start_up)
 
     def name_lost(self, *_):
@@ -140,6 +168,7 @@ class Service:
         if integration.top_bar_enabled() and integration.link_extension():
             print(f"Linked the top-bar menu for GNOME {integration.gnome_version()}; "
                   "it appears after the next log in.", flush=True)
+        warmth.restore()
         # Find the monitors first, so the top-bar menu works straight after a fresh install.
         read_levels([bus for bus, _ in ddc.detect_displays()])
         apply_schedule()
@@ -152,16 +181,21 @@ class Service:
         if method == "GetState":
             invocation.return_value(GLib.Variant("(ii)", self.state()))
             return
+        if method == "GetWarmth":
+            invocation.return_value(GLib.Variant("(i)", (self.warmth(),)))
+            return
         if method == "SetBrightness":
             self.set_brightness(args[0])
         elif method == "SetContrast":
             self.set_contrast(args[0])
+        elif method == "SetWarmth":
+            warmth.set_level(args[0])
         elif method == "ApplyPreset":
             presets = ddc.presets()
             if args[0] not in presets:
                 invocation.return_dbus_error(f"{INTERFACE}.Error.UnknownPreset", f"No preset called {args[0]}")
                 return
-            self.set_brightness(presets[args[0]])
+            self.apply_preset(presets[args[0]])
         invocation.return_value(None)
 
     def state(self):
@@ -178,11 +212,19 @@ class Service:
 
         return first(ddc.BRIGHTNESS), first(ddc.CONTRAST)
 
+    def warmth(self):
+        level = warmth.get_level()
+        return -1 if level is None else level
+
     def emit_changed(self):
         current = self.state()
         if current != self.last_emitted:
             self.last_emitted = current
             self.connection.emit_signal(None, OBJECT_PATH, INTERFACE, "Changed", GLib.Variant("(ii)", current))
+        level = self.warmth()
+        if level != self.last_warmth:
+            self.last_warmth = level
+            self.connection.emit_signal(None, OBJECT_PATH, INTERFACE, "WarmthChanged", GLib.Variant("(i)", (level,)))
 
     # Monitors
 
@@ -200,10 +242,18 @@ class Service:
     def set_brightness(self, percent):
         self.request_all(ddc.BRIGHTNESS, percent)
         if ddc.load_config()["sync_laptop"]:
-            laptop.set_brightness(percent, wait=False)
+            laptop.set_brightness(ddc.laptop_level(percent), wait=False)
 
     def set_contrast(self, percent):
         self.request_all(ddc.CONTRAST, percent)
+
+    def apply_preset(self, preset):
+        # Through the writers, like the sliders, so this call returns at once.
+        self.set_brightness(preset["brightness"])
+        if preset["contrast"] is not None:
+            self.set_contrast(preset["contrast"])
+        if preset["warmth"] is not None:
+            warmth.set_level(preset["warmth"], now=True)
 
     # The laptop screen
 
@@ -226,7 +276,7 @@ class Service:
         # several of these, each applies the newest level rather than an old one.
         def newest(current, maximum):
             percent = laptop.get_brightness()
-            return current if percent is None else ddc.from_percent(percent, maximum)
+            return current if percent is None else ddc.from_percent(ddc.monitor_level(percent), maximum)
 
         ddc.set_brightness(newest, sync_laptop=False)
 
@@ -263,6 +313,7 @@ class Service:
     def sleep_changed(self, _connection, _sender, _path, _interface, _signal, parameters):
         (going_to_sleep,) = parameters.unpack()
         if not going_to_sleep:
+            warmth.restore()
             in_background(apply_schedule)
             self.schedule_next()
 
@@ -277,6 +328,7 @@ class Service:
 
     def look(self, seconds):
         del self.look_timers[seconds]
+        warmth.restore()  # a new screen starts untinted
         in_background(add_new_monitors)
         return GLib.SOURCE_REMOVE
 

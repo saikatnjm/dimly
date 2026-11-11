@@ -1,17 +1,16 @@
 /* Dimly's panel applet for Cinnamon (Linux Mint): brightness, contrast and
  * warmth sliders and presets. The same menu as the GNOME top-bar extension, and
- * it talks to the same background service, which does the monitor work.
+ * it talks to the same background service, which does the work. For warmth the
+ * service uses Cinnamon's night light, or Dimly's own tint where there's none.
  */
 const Applet = imports.ui.applet;
 const PopupMenu = imports.ui.popupMenu;
-const { Gio, GLib, St } = imports.gi;
+const { Gio, St } = imports.gi;
 
 const APP_ID = 'io.github.saikatnjm.Dimly';
 const BUS_NAME = 'io.github.saikatnjm.Dimly.Service';
 const OBJECT_PATH = '/io/github/saikatnjm/Dimly/Service';
 const PRESETS = ['Night', 'Evening', 'Day', 'Max'];
-const NIGHT_LIGHT_SCHEMA = 'org.cinnamon.settings-daemon.plugins.color';
-const COOLEST = 6500, WARMEST = 1700;  // kelvin at warmth 0 and 100
 // After you move a slider, outside updates wait this long, so a change still on
 // its way back doesn't pull the slider from under you.
 const LOCAL_CHANGE_GRACE_MS = 2000;
@@ -25,10 +24,13 @@ const ServiceProxy = Gio.DBusProxy.makeProxyWrapper(`<node>
     <method name="SetBrightness"><arg name="level" type="i" direction="in"/></method>
     <method name="SetContrast"><arg name="value" type="i" direction="in"/></method>
     <method name="ApplyPreset"><arg name="name" type="s" direction="in"/></method>
+    <method name="GetWarmth"><arg name="level" type="i" direction="out"/></method>
+    <method name="SetWarmth"><arg name="level" type="i" direction="in"/></method>
     <signal name="Changed">
       <arg name="brightness" type="i"/>
       <arg name="contrast" type="i"/>
     </signal>
+    <signal name="WarmthChanged"><arg name="level" type="i"/></signal>
   </interface>
 </node>`);
 
@@ -74,14 +76,7 @@ class DimlyApplet extends Applet.IconApplet {
 
         this._brightness = new Level(this.menu, 'Brightness', level => this._call('SetBrightness', level));
         this._contrast = new Level(this.menu, 'Contrast', level => this._call('SetContrast', level));
-        const source = Gio.SettingsSchemaSource.get_default();
-        const schema = source && source.lookup(NIGHT_LIGHT_SCHEMA, true);
-        if (schema && schema.has_key('night-light-temperature')) {
-            this._nightLight = new Gio.Settings({ schema_id: NIGHT_LIGHT_SCHEMA });
-            this._warmth = new Level(this.menu, 'Warmth', level => this._setWarmth(level));
-            this._nightLightChangedId = this._nightLight.connect('changed', () => this._showWarmth());
-            this._showWarmth();
-        }
+        this._warmth = new Level(this.menu, 'Warmth', level => this._call('SetWarmth', level));
 
         this._presets = new PopupMenu.PopupBaseMenuItem({ reactive: false });
         const box = new St.BoxLayout({ style_class: 'dimly-presets' });
@@ -108,10 +103,13 @@ class DimlyApplet extends Applet.IconApplet {
                 return;
             this._changedId = proxy.connectSignal('Changed',
                 (_proxy, _sender, [brightness, contrast]) => this._show(brightness, contrast));
+            this._warmthChangedId = proxy.connectSignal('WarmthChanged',
+                (_proxy, _sender, [level]) => this._warmth.show(level));
             this._ownerId = proxy.connect('notify::g-name-owner', () => this._refresh());
             this._refresh();
         }, this._cancellable, Gio.DBusProxyFlags.DO_NOT_AUTO_START);
         this._show(-1, -1);
+        this._warmth.show(-1);
     }
 
     on_applet_clicked() {
@@ -134,11 +132,17 @@ class DimlyApplet extends Applet.IconApplet {
             if (!error && !this._destroyed)
                 this._show(...result);
         });
+        this._proxy.GetWarmthRemote((result, error) => {
+            if (!error && !this._destroyed)
+                this._warmth.show(result[0]);
+        });
     }
 
     _show(brightness, contrast, message) {
         this._brightness.show(brightness);
         this._contrast.show(contrast);
+        if (message)
+            this._warmth.show(-1);
         this._presets.actor.visible = brightness >= 0;
         // Dimly only adjusts external monitors; a laptop's own screen is the desktop's job.
         const text = message || (brightness < 0 && contrast < 0 ? 'No adjustable monitor found' : '');
@@ -146,30 +150,15 @@ class DimlyApplet extends Applet.IconApplet {
         this._message.actor.visible = text !== '';
     }
 
-    _setWarmth(level) {
-        if (level <= 0) {
-            this._nightLight.set_boolean('night-light-enabled', false);
-            return;
-        }
-        this._nightLight.set_uint('night-light-temperature', Math.round(COOLEST - (COOLEST - WARMEST) * level / 100));
-        this._nightLight.set_boolean('night-light-enabled', true);
-    }
-
-    _showWarmth() {
-        const kelvin = this._nightLight.get_uint('night-light-temperature');
-        const level = Math.max(1, Math.min(100, Math.round((COOLEST - kelvin) * 100 / (COOLEST - WARMEST))));
-        this._warmth.show(this._nightLight.get_boolean('night-light-enabled') ? level : 0);
-    }
-
     on_applet_removed_from_panel() {
         this._destroyed = true;
         this._cancellable.cancel();
         if (this._changedId)
             this._proxy.disconnectSignal(this._changedId);
+        if (this._warmthChangedId)
+            this._proxy.disconnectSignal(this._warmthChangedId);
         if (this._ownerId)
             this._proxy.disconnect(this._ownerId);
-        if (this._nightLight)
-            this._nightLight.disconnect(this._nightLightChangedId);
         this.menu.destroy();
     }
 }

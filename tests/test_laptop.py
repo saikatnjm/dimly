@@ -28,6 +28,14 @@ class EchoTest(unittest.TestCase):
         self.assertTrue(laptop.is_own_change(laptop.MINIMUM + laptop.ECHO_TOLERANCE))
         self.assertFalse(laptop.is_own_change(50))
 
+    def test_with_an_offset_the_echo_is_the_laptops_own_level(self):
+        ddc.update_config(laptop_offset=10)
+        with mock.patch.object(laptop, "session_bus"):
+            laptop.set_brightness(ddc.laptop_level(30))
+        self.assertTrue(laptop.is_own_change(40))  # what GNOME reports back
+        self.assertFalse(laptop.is_own_change(30))  # the monitor's level isn't the laptop's
+        ddc.CONFIG_FILE.unlink()
+
     def test_old_changes_no_longer_count(self):
         ddc.update_state(laptop_echoes=[[40, time.time() - laptop.ECHO_SECONDS - 1]])
         self.assertFalse(laptop.is_own_change(40))

@@ -1,10 +1,11 @@
-"""Tests for warmth.py: the mapping onto the desktop's night light settings."""
+"""Tests for warmth.py: the desktop's night light settings, and Dimly's own tint without one."""
 
 import os
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 _home = tempfile.mkdtemp(prefix="dimly-test-")
 for name in ("XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_STATE_HOME", "XDG_RUNTIME_DIR"):
@@ -74,6 +75,54 @@ class WarmthTest(unittest.TestCase):
         night_light = FakeNightLight()
         warmth.set_when(night_light, "always")
         self.assertEqual(night_light.values["night-light-schedule-to"], 0.0)
+
+    def test_a_preset_shows_its_warmth_at_once(self):
+        night_light = FakeNightLight()
+        with mock.patch.object(warmth, "settings", return_value=night_light):
+            warmth.set_level(30)
+            self.assertEqual(warmth.get_when(night_light), "usual")  # the slider leaves the hours alone
+            warmth.set_level(30, now=True)
+            self.assertEqual(warmth.get_when(night_light), "always")
+            self.assertEqual(warmth.get_level(), 30)
+
+
+class OwnTintTest(unittest.TestCase):
+    def setUp(self):
+        warmth.ddc.STATE_FILE.unlink(missing_ok=True)
+
+    def test_no_tint_at_warmth_zero(self):
+        self.assertEqual(warmth.white_point(warmth.to_kelvin(0)), (1.0, 1.0, 1.0))
+        self.assertEqual(warmth.ramp(4, 1.0), [0, 21845, 43690, 65535])
+
+    def test_warmer_takes_away_blue_first_then_green(self):
+        points = [warmth.white_point(warmth.to_kelvin(level)) for level in range(0, 101, 10)]
+        for cooler, warmer in zip(points, points[1:]):
+            self.assertEqual(warmer[0], 1.0)
+            self.assertLess(warmer[1], cooler[1])
+            self.assertLess(warmer[2], cooler[2])
+            self.assertLessEqual(warmer[2], warmer[1])
+        self.assertGreater(points[-1][2], 0)  # the warmest still shows blue things, dimly
+
+    def test_without_a_night_light_dimly_tints_the_screens_itself(self):
+        with mock.patch.object(warmth, "settings", return_value=None), \
+                mock.patch.object(warmth, "_x11", return_value=object()), \
+                mock.patch.object(warmth, "_set_ramps", return_value=True) as set_ramps:
+            self.assertTrue(warmth.available())
+            self.assertEqual(warmth.get_level(), 0)
+            warmth.set_level(40, now=True)
+            set_ramps.assert_called_once_with(40)
+            self.assertEqual(warmth.get_level(), 40)
+            set_ramps.reset_mock()
+            warmth.restore()  # after logging in again
+            set_ramps.assert_called_once_with(40)
+
+    def test_nothing_to_change_on_wayland_without_a_night_light(self):
+        with mock.patch.object(warmth, "settings", return_value=None), \
+                mock.patch.dict(os.environ, {"XDG_SESSION_TYPE": "wayland"}):
+            self.assertFalse(warmth.available())
+            self.assertIsNone(warmth.get_level())
+            warmth.set_level(40)
+            self.assertNotIn("warmth", warmth.ddc.load_state())
 
 if __name__ == "__main__":
     unittest.main()
